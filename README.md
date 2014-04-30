@@ -1,26 +1,35 @@
-## daplug-python ##
+The Daplug API source files are in the "src" directory.
 
-Daplug Python APIs
+The "test" directory contain a "main.c" file. So you can use it to understand how the C Daplug API works and what we can do with it. 
 
-### Requirements ###
+Last update 18 04 2014 10:57
 
-This package was developped and tested with Python 2.7.2+
+## How to compile ##
 
-The only external dependency is [python-libusb1](https://github.com/vpelletier/python-libusb1.git) (developped and tested on version 1.1.0)
+### Windows 7/32 ###
 
-### Specific udev rule ###
+- Install openssl for windows <Win32 OpenSSL v1.0.1f> or greater (http://slproweb.com/products/Win32OpenSSL.html)
 
-You have to add a specific udev rule to allow access daplug USB devices. Create a file `/etc/udev/rules.d/10-daplug.rules`
+- Install libusbx-1.0
 
-    SUBSYSTEMS=="usb", ATTRS{idVendor}=="2581", ATTRS{idProduct}=="1807", MODE="0660", GROUP="daplug"
-    SUBSYSTEMS=="usb", ATTRS{idVendor}=="2581", ATTRS{idProduct}=="1808", MODE="0660", GROUP="daplug"
+- Linked libraries : libusb-1.0 (libusbx) + libeay32 (openssl) + setupapi
 
-To restart udev run :
+- When compiling, sets openssl and libusbx search directories (include & dll) : here we use dynamic linking ;
+   so not forget to put dll files in the runtime directory when deploying.
 
-    sudo udevadm trigger
+- If driver problem, install it using zadig (http://zadig.akeo.ie/).
 
-Then create a group `daplug` and add your account in it.
+### Linux 64 (Tested on Ubuntu 13.10, should work on other releases) ###
 
-### Installation ###
+- Linked libraries : libusb-1.0 + libcrypto (openssl) + libpthread (on 64 OS)
 
-Simply run `python setup.py install` (you may need root access to do this).
+- Add proper udev rule.
+
+- Add -fPIC to compiler options. (when creating a lib on 64)
+
+## Notes ##
+
+- Be careful ! Use the right hidapi (hidpai.c & hidapi.h) according to your OS !!!
+
+- For debug use debug compilation ; for deploying use release compilation.
+
