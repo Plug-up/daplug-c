@@ -1,0 +1,6 @@
+//Mention updates here ; put the date
+
+18/04/2014 - 10h57
+
+> Fixing a bug in the use of memset function. (Files : apdu.c & keyset.c)
+
