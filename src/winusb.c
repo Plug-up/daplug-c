@@ -25,7 +25,7 @@
 
 static const int TIMEOUT_MS = 5000;
 static int initialized = 0;
-libusb_context *ctx;
+static libusb_context *ctx;
 
 struct winusb_device_{
 

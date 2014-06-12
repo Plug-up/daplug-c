@@ -75,26 +75,47 @@ typedef struct {
 * \struct DaplugDongle
 * \brief A structure representing a Daplug dongle. It contains, informations about the dongle and the secure channel session.
 */
-typedef struct {
 
-    Dongle_info di; /**< A Dongle_info */
+typedef struct DaplugDongle* DaplugDongle_p;
+typedef struct DaplugDongle{
+
+    Dongle_info *di; /**< A Dongle_info */
 
     char c_mac[8*2+1], /**< Session command mac */
          r_mac[8*2+1], /**< Session response mac */
-         s_enc_key[GP_KEY_SIZE*2+1], /**< Session command encryption key (used for confidentiality and authentication) */
-         r_enc_key[GP_KEY_SIZE*2+1], /**< Session response encryption key (used for confidentiality and authentication) */
-         c_mac_key[GP_KEY_SIZE*2+1], /**< Session command integrity key (used for integrity) */
-         r_mac_key[GP_KEY_SIZE*2+1], /**< Session response integrity key (used for integrity) */
-         s_dek_key[GP_KEY_SIZE*2+1]; /**< Session DEK key (used for command data confidentiality in specific cases such as PUT KEY command) */
+         s_enc_key[24*2+1], /**< Session command encryption (SAM material) key (used for confidentiality and authentication) */
+         r_enc_key[24*2+1], /**< Session response encryption (SAM material) key (used for confidentiality and authentication) */
+         c_mac_key[24*2+1], /**< Session command integrity (SAM material) key (used for integrity) */
+         r_mac_key[24*2+1], /**< Session response integrity (SAM material) key (used for integrity) */
+         s_dek_key[24*2+1]; /**< Session DEK (SAM material) key (used for command data confidentiality in specific cases such as PUT KEY command) */
+
+    int sessionType; /**< A flag indicating if software or hardware secure channel. */
+
+    //Meaningful only if hardware session
+    DaplugDongle_p SAMDpd; /**< The associated SAM if hardware SC. */
+    int SAMCtxKeyVersion; /**< The associated SAM Context Key Version if hardware SC.*/
+    int SAMCtxKeyId; /**< The associated SAM Context Key Id if hardware SC.*/
 
     int securityLevel; /**< Security level of the secure channel */
     int session_opened; /**< A flag indicating if a secure channel session is established or no. */
 
-
 } DaplugDongle;
 
 /**
- * \ingroup Daplug
+* \ingroup Daplug
+* \enum sc_type
+* \brief Secure Channel type
+*
+*/
+typedef enum{
+
+    SOFT_SC = 0x01, /**< Software SC */
+    HARD_SC = 0x02, /**< Hardware SC */
+
+} sc_type;
+
+/**
+* \ingroup Daplug
 * \enum sec_level
 * \brief Security level to use for authentication
 *
@@ -147,14 +168,15 @@ typedef enum{
 
 /**
  * \ingroup Daplug
- * \fn int Daplug_getDongleList(Dongle_info *dil)
- * \param dil A list of connected dongles as a Dongle_info list. Must be freed later with Daplug_freeDongleList()
- * \return The number of connected dongles in the outputted list
+ * \fn int DAPLUGAPI DAPLUGCALL Daplug_getDongleList()
+ * \param A string informative list of connected dongles.
+ * \return The number of connected dongles
  *
- * Returns a list of connected dongles. This is an entry point into finding an Hid or a Winusb dongle to operate.
- * The return value of this funtion indicates the number of dongles in the resultant list.
+ * This is an entry point into finding an Hid or a Winusb dongle to operate.
+ * It returns a string informative list of connected dongles.
+ * The return value of this funtion indicates the number of connected dongles.
 */
-int DAPLUGAPI DAPLUGCALL Daplug_getDongleList(Dongle_info*);
+int DAPLUGAPI DAPLUGCALL Daplug_getDonglesList(char ***donglesList);
 
 /**
  * \ingroup Daplug
@@ -165,26 +187,16 @@ int DAPLUGAPI DAPLUGCALL Daplug_getDongleList(Dongle_info*);
  *
  * Makes available the requested dongle and initialize the session data. You must use Daplug_closeDongle() later to close the selected dongle handle.
 */
-int DAPLUGAPI DAPLUGCALL Daplug_getDongleById(Dongle_info*,DaplugDongle*);
+DaplugDongle* DAPLUGAPI DAPLUGCALL Daplug_getDongleById(int id);
 
 /**
  * \ingroup Daplug
- * \fn void Daplug_free(DaplugDongle *dpd, Dongle_info *dil, int nb)
- * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
- * \param dil The list obtained by the Daplug_getDongleList() function
- * \param nb The number of connected dongles. Obtained in the return value of Daplug_getDongleList() function
+ * \fn int Daplug_getFirstDongle()
+ * \return 1 is success ; 0 if failure
  *
- * Close opened secure channel session, release selected dongle and free dongles list.
+ * Makes available the first connected dongle and initialize the session data.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_free(DaplugDongle *dpd, Dongle_info *dil, int nb);
-
-/**
- * \ingroup Daplug
- * \fn void Daplug_exit()
- *
- * Deinitialize the libusb used by the Daplug API.
-*/
-void DAPLUGAPI DAPLUGCALL Daplug_exit();
+DaplugDongle* DAPLUGCALL Daplug_getFirstDongle();
 
 /**
  * \ingroup Daplug
@@ -197,7 +209,7 @@ void DAPLUGAPI DAPLUGCALL Daplug_exit();
  *
  * Exchange an apdu command and get the response and the status word.
 */
-int DAPLUGAPI DAPLUGCALL Daplug_exchange(DaplugDongle*, const char *cmd, char *resp, char *sw);
+int DAPLUGAPI DAPLUGCALL Daplug_exchange(DaplugDongle *dpd, const char *cmd, char *resp, char *sw);
 
 /**
  * \ingroup Daplug
@@ -208,8 +220,12 @@ int DAPLUGAPI DAPLUGCALL Daplug_exchange(DaplugDongle*, const char *cmd, char *r
  *
  * Get the unique serial number for the selected dongle.
 */
+int DAPLUGAPI DAPLUGCALL Daplug_getDongleSerial(DaplugDongle *dpd, char *serial);
 
-int DAPLUGAPI DAPLUGCALL Daplug_getDongleSerial(DaplugDongle*, char *serial);
+/**
+ *
+*/
+int DAPLUGAPI DAPLUGCALL Daplug_getChipDiversifier(DaplugDongle *dpd, char *chipDiversifier);
 
 /**
  * \ingroup Daplug
@@ -241,13 +257,22 @@ int DAPLUGAPI DAPLUGCALL Daplug_setDongleStatus(DaplugDongle *dpd, int status);
  * \param mode Security level to use for authentication. For possible values to use, see sec_level.
  * \param div Diversifier (optional)
  * \param chlg The host challenge. (optional)
+ * \return 1 if success ; 0 if failure
  *
  * Perform a mutual authentication between the dongle and the client. A secure channel is then created and used for exchanging APDUs acccording
  * to the security level mode. Diversified keys are obtained by difersifying each key in the master keyset by the provided diversifier (You can use Daplug_ComputeDiversifiedKeys() for that).
  * If the diversifier is not provided (empty string ""), default authentication is used. The host challenge is used for computing the host cryptogram (a value used when
  * performing the mutual authentication). If it is not provided (empty string ""), a random value is generated.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_authenticate(DaplugDongle *dpd, Keyset keys, int mode, char *div, char *chlg);
+int DAPLUGCALL Daplug_authenticate(DaplugDongle *dpd, Keyset keys, int mode, char *div, char *chlg);
+
+/**
+
+*/
+int DAPLUGCALL Daplug_authenticateUsingSAM(DaplugDongle *daplugCard, DaplugDongle *daplugSAM,
+                                          int SAMCtxKeyVersion, int SAMCtxKeyId, int SAMGPUsableKeyVersion,
+                                          int TargetKeyVersion, int mode, char *div1, char* div2);
+
 
 /**
  * \ingroup Daplug
@@ -255,10 +280,11 @@ void DAPLUGAPI DAPLUGCALL Daplug_authenticate(DaplugDongle *dpd, Keyset keys, in
  * \param keys A master keyset
  * \param div_keys The resultant keyset. It will contain the diversified keys.
  * \param div Diversifier
+ * \return 1 if success ; 0 if failure
  *
  * Diversify master keys using a diversifier.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_computeDiversifiedKeys(Keyset keys, Keyset *div_keys, char *div);
+int DAPLUGCALL Daplug_computeDiversifiedKeys(DaplugDongle *dpd, Keyset keys, Keyset *div_keys, char *div);
 
 /**
  * \ingroup Daplug
@@ -267,27 +293,34 @@ void DAPLUGAPI DAPLUGCALL Daplug_computeDiversifiedKeys(Keyset keys, Keyset *div
  *
  * Close the current session.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_deAuthenticate(DaplugDongle *dpd);
+int DAPLUGAPI DAPLUGCALL Daplug_deAuthenticate(DaplugDongle *dpd);
 
 /**
  * \ingroup Daplug
  * \fn void Daplug_putKey(DaplugDongle *dpd, Keyset new_keys)
  * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
  * \param new_keys A new keyset
+ * \return 1 if success ; 0 if failure
  *
  * Upload the provided keyset to the dongle.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_putKey(DaplugDongle *, Keyset);
+int DAPLUGCALL Daplug_putKey(DaplugDongle *dpd, Keyset new_keys, int itselfParent);
+
+/**
+*/
+int DAPLUGCALL Daplug_putKeyUsingSAM(DaplugDongle *dpd, int newKeyVersion, int access, int usage,
+                                     int SAMProvisionableKeyVersion, char *div1, char *div2, int itselfParent);
 
 /**
  * \ingroup Daplug
  * \fn void Daplug_deleteKey(DaplugDongle *dpd, int version)
  * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
  * \param version The keyset version
+ * \return 1 if success ; 0 if failure
  *
  * Delete the specified keyset.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_deleteKey(DaplugDongle *dpd, int version);
+int DAPLUGCALL Daplug_deleteKey(DaplugDongle *dpd, int version);
 
 /**
  * \ingroup Daplug
@@ -299,7 +332,7 @@ void DAPLUGAPI DAPLUGCALL Daplug_deleteKey(DaplugDongle *dpd, int version);
  *
  * Export the current transient keyset (0xF0) using the specified key version and key id.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_exportKey(DaplugDongle *,int version,int id, char *expkey);
+int DAPLUGAPI DAPLUGCALL Daplug_exportKey(DaplugDongle *dpd, int version,int id, char *expkey);
 
 /**
  * \ingroup Daplug
@@ -311,7 +344,7 @@ void DAPLUGAPI DAPLUGCALL Daplug_exportKey(DaplugDongle *,int version,int id, ch
  *
  * Import the provided transient keyset (0xF0) using the specified key version and key id.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_importKey(DaplugDongle *,int version,int id, char *impkey);
+int DAPLUGAPI DAPLUGCALL Daplug_importKey(DaplugDongle *dpd, int version,int id, char *impkey);
 
 /**
  * \ingroup Daplug
@@ -322,13 +355,14 @@ void DAPLUGAPI DAPLUGCALL Daplug_importKey(DaplugDongle *,int version,int id, ch
  * \param ac[3] Access conditions
  * \param isFileEnc A Flag indicating if the created file content will be encrypted (1) or no (0).
  * \param isCntFile A Flag indicating if the created file is a counter file (1) or no (0).
+ * \return 1 if success ; 0 if failure
  *
  * Create a new file with the given ID (0 to 65535) and the given size (1 to 65535) under the current directory. Access conditions are specified in a three-value array.
  * The first value codes the DELETE access condition. The second value codes the UPDATE access condtion. The third value codes the
  * READ access condition. An access condition is coded as follows : 0x00 for always, 0xFF for never, 0x01 to 0xFE for an access
  * protected by a secure channel 0x01 to 0xFE. A counter file size shall be 8 bytes.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_createFile(DaplugDongle *dpd, int id, int size, int ac[3], int isFileEnc, int isCntFile);
+int DAPLUGAPI DAPLUGCALL Daplug_createFile(DaplugDongle *dpd, int id, int size, int ac[3], int isFileEnc, int isCntFile);
 
 /**
  * \ingroup Daplug
@@ -336,45 +370,49 @@ void DAPLUGAPI DAPLUGCALL Daplug_createFile(DaplugDongle *dpd, int id, int size,
  * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
  * \param id A directory ID
  * \param ac[3] Access conditions
+ * \return 1 if success ; 0 if failure
  *
  * Create a new directory with the given ID (0 to 65535) under the current directory. Access conditions are specified in a three-value array.
  * The first value codes the DELETE SELF access condition. The second value codes the CREATE DF access condition. The third value codes the
  * CREATE EF access condition. An access condition is coded as follows : 0x00 for always, 0xFF for never, 0x01 to 0xFE for an access
  * protected by a secure channel 0x01 to 0xFE.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_createDir(DaplugDongle *dpd, int id, int ac[3]);
+int DAPLUGAPI DAPLUGCALL Daplug_createDir(DaplugDongle *dpd, int id, int ac[3]);
 
 /**
  * \ingroup Daplug
  * \fn void Daplug_deleteFileOrDir(DaplugDongle *dpd, int id)
  * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
  * \param id A file/directory ID
+ * \return 1 if success ; 0 if failure
  *
  * Delete the specified file or directory.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_deleteFileOrDir(DaplugDongle *dpd, int id);
+int DAPLUGCALL Daplug_deleteFileOrDir(DaplugDongle *dpd, int id);
 
 /**
  * \ingroup Daplug
  * \fn void Daplug_selectFile(DaplugDongle *dpd, int id)
  * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
  * \param id A file/directory ID
+ * \return 1 if success ; 0 if failure
  *
  * Select the specified file
 */
-void DAPLUGAPI DAPLUGCALL Daplug_selectFile(DaplugDongle *dpd, int id);
+int DAPLUGCALL Daplug_selectFile(DaplugDongle *dpd, int id);
 
 /**
  * \ingroup Daplug
- * \fn void Daplug_selectPath(DaplugDongle *dpd, char *path)
+ * \fn void Daplug_selectPath(char *path)
  * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
  * \param path Path to select
+ * \return 1 if success ; 0 if failure
  *
  * Select the specified path. A path is specified as a string containing a sequence of files IDs. Each file ID is specified as two bytes string.
  * For example, to select the file 0x0036 located under the directory 0x2214 located under the master file (0x3F00),
  * use path "3F0022140036".
 */
-void DAPLUGAPI DAPLUGCALL Daplug_selectPath(DaplugDongle *dpd, char *path);
+int DAPLUGCALL Daplug_selectPath(DaplugDongle *dpd, char *path);
 
 /**
  * \ingroup Daplug
@@ -383,10 +421,11 @@ void DAPLUGAPI DAPLUGCALL Daplug_selectPath(DaplugDongle *dpd, char *path);
  * \param offset Indicates where start reading
  * \param length The size of data to read
  * \param read_data Read data
+ * \return 1 if success ; 0 if failure
  *
  * Read length bytes of data from the selected file. Reading starts at the offset.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_readData(DaplugDongle *dpd,int offset, int length, char *read_data);
+int DAPLUGAPI DAPLUGCALL Daplug_readData(DaplugDongle *dpd, int offset, int length, char *read_data);
 
 /**
  * \ingroup Daplug
@@ -394,10 +433,11 @@ void DAPLUGAPI DAPLUGCALL Daplug_readData(DaplugDongle *dpd,int offset, int leng
  * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
  * \param offset Indicates where start writing
  * \param data_to_write Data to write
+ * \return 1 if success ; 0 if failure
  *
  * Write provided data into the selected file. Writing starts at the offset.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_writeData(DaplugDongle *dpd,int offset, char* data_to_write);
+int DAPLUGAPI DAPLUGCALL Daplug_writeData(DaplugDongle *dpd, int offset, char* data_to_write);
 
 /**
  * \ingroup Daplug
@@ -411,13 +451,14 @@ void DAPLUGAPI DAPLUGCALL Daplug_writeData(DaplugDongle *dpd,int offset, char* d
  * \param div2 Second diversifier (optional)
  * \param inData Sequence of bytes to encrypt.
  * \param outData Resultant encrypted data.
+ * \return 1 if success ; 0 if failure
  *
  * Encrypt a sequence of bytes using Triple DES encryption. Data length must be a multiple of 8 bytes. The mode parameter combines options to use
  * such as block cipher mode (ENC_ECB or ENC_CBC) and the use of diversifiers or not (ENC_1_DIV, ENC_2_DIV).
  * For example, if we want to use CBC with two provided diversifiers, mode must be equal to ENC_CBC+ENC_2_DIV. If not provided, optional parameters must be specified as
  * empty string "".
 */
-void DAPLUGAPI DAPLUGCALL Daplug_encrypt(DaplugDongle *dpd, int keyVersion, int keyID, int mode, char *iv, char *div1, char *div2, char *inData, char *outData);
+int DAPLUGAPI DAPLUGCALL Daplug_encrypt(DaplugDongle *dpd, int keyVersion, int keyID, int mode, char *iv, char *div1, char *div2, char *inData, char *outData);
 
 /**
  * \ingroup Daplug
@@ -431,13 +472,14 @@ void DAPLUGAPI DAPLUGCALL Daplug_encrypt(DaplugDongle *dpd, int keyVersion, int 
  * \param div2 Second diversifier (optional)
  * \param inData Sequence of encrypted bytes.
  * \param outData Resultant decrypted data.
+ * \return 1 if success ; 0 if failure
  *
  * Decrypt a sequence of bytes previously encrypted using Triple DES encryption. Encrypted Data length must be a multiple of 8 bytes. The mode parameter combines options to use
  * such as block cipher mode (ENC_ECB or ENC_CBC) and the use of diversifiers or not (ENC_1_DIV, ENC_2_DIV).
  * For example, if we want to use CBC with two provided diversifiers, mode must be equal to ENC_CBC+ENC_2_DIV. If not provided, optional parameters must be specified as
  * empty string "".
  */
-void DAPLUGAPI DAPLUGCALL Daplug_decrypt(DaplugDongle *dpd, int keyVersion, int keyID, int mode, char *iv, char *div1, char *div2, char *inData, char *outData);
+int DAPLUGAPI DAPLUGCALL Daplug_decrypt(DaplugDongle *dpd, int keyVersion, int keyID, int mode, char *iv, char *div1, char *div2, char *inData, char *outData);
 
 /**
  * \ingroup Daplug
@@ -445,10 +487,11 @@ void DAPLUGAPI DAPLUGCALL Daplug_decrypt(DaplugDongle *dpd, int keyVersion, int 
  * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
  * \param length Random length
  * \param random Generated random
+ * \return 1 if success ; 0 if failure
  *
  * Generates random data.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_getRandom(DaplugDongle *dpd, int length, char* random);
+int DAPLUGCALL Daplug_getRandom(DaplugDongle *dpd, int length, char* random);
 
 /**
  * \ingroup Daplug
@@ -460,11 +503,12 @@ void DAPLUGAPI DAPLUGCALL Daplug_getRandom(DaplugDongle *dpd, int length, char* 
  * \param div2 Second diversifier (optional)
  * \param inData Data to sign
  * \param outData HMAC-SHA-1 20 bytes signature
+ * \return 1 if success ; 0 if failure
  *
  * Signs provided data using HMAC-SHA1. The resultant data is an 20-bytes signature. options parameter specifies if we want to use one (OTP_1_DIV) or two (OTP_2_DIV) provided diversifier(s).
  * If no diversifier is provided, div parameter must be equal to an empty string ("") and option parameter must be equal to OTP_0_DIV.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_hmac(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData);
+int DAPLUGAPI DAPLUGCALL Daplug_hmac(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData);
 
 /**
  * \ingroup Daplug
@@ -476,11 +520,12 @@ void DAPLUGAPI DAPLUGCALL Daplug_hmac(DaplugDongle *dpd, int keyVersion, int opt
  * \param div2 Second diversifier (optional)
  * \param inData A counter file ID if HOTP keyset is provided or counter value as an 8 bytes string if HOTP_VALIDATION keyset is provided.
  * \param outData HOTP : HMAC based One Time Password.
+ * \return 1 if success ; 0 if failure
  *
  * Returns an HMAC based One Time Password. options parameter specifies the size of the resultant HOTP and if we want to use one (OTP_1_DIV) or two (OTP_2_DIV) provided diversifier(s).
  * If no diversifier is provided, div parameters must be equal to an empty string ("") and option parameter must be equal to OTP_0_DIV.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_hotp(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData);
+int DAPLUGAPI DAPLUGCALL Daplug_hotp(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData);
 
 /**
  * \ingroup Daplug
@@ -492,12 +537,13 @@ void DAPLUGAPI DAPLUGCALL Daplug_hotp(DaplugDongle *dpd, int keyVersion, int opt
  * \param div2 Second diversifier (optional)
  * \param inData Empty string "" if TOTP keyset is provided or time data as an 8 bytes string if TOTP_VALIDATION keyset is provided.
  * \param outData TOTP : Time based One Time Password.
+ * \return 1 if success ; 0 if failure
  *
  * Returns a Time based One Time Password. options parameter specifies the size of the resultant HOTP and if we want to use one (OTP_1_DIV) or two (OTP_2_DIV) provided diversifier(s).
  * If no diversifier is provided, div parameters must be equal to an empty string ("") and option parameter must be equal to OTP_0_DIV. If TOTP keyset is provided,
  * Daplug_setTimeOTP() function must have been called with a time source key matching the key requirement.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_totp(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData);
+int DAPLUGAPI DAPLUGCALL Daplug_totp(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData);
 
 /**
  * \ingroup Daplug
@@ -513,7 +559,7 @@ void DAPLUGAPI DAPLUGCALL Daplug_totp(DaplugDongle *dpd, int keyVersion, int opt
  * The time value t is encoded as a big endian unsigned 32 bits integer (string format). If step parameter is not specified (=0), a typical value is used (30).
  * If t parameter is not specified, system time is used.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_setTimeOTP(DaplugDongle *dpd, int keyVersion, int keyId, char *timeSrcKey, int step, int time);
+int DAPLUGAPI DAPLUGCALL Daplug_setTimeOTP(DaplugDongle *dpd, int keyVersion, int keyId, char *timeSrcKey, int step, int time);
 
 /**
  * \ingroup Daplug
@@ -524,36 +570,40 @@ void DAPLUGAPI DAPLUGCALL Daplug_setTimeOTP(DaplugDongle *dpd, int keyVersion, i
  * Gets the current time of the dongle.
  * The time value is encoded as a big endian unsigned 32 bits integer (string format).
 */
-void DAPLUGAPI DAPLUGCALL Daplug_getTimeOTP(DaplugDongle *dpd, char* time);
+int DAPLUGAPI DAPLUGCALL Daplug_getTimeOTP(DaplugDongle *dpd, char* time);
 
 /**
  * \ingroup Daplug
  * \fn void Daplug_useAsKeyboard(DaplugDongle *dpd)
  * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
+ * \return 1 if success ; 0 if failure
  *
  * Use the selected file as keyboard file. We must create a keyboard file then select it before using this function. (Refer to Keyborad functions
  * to see how to create a keyboard file).
 */
-void DAPLUGAPI DAPLUGCALL Daplug_useAsKeyboard(DaplugDongle *dpd);
+int DAPLUGAPI DAPLUGCALL Daplug_useAsKeyboard(DaplugDongle *dpd);
 
 /**
  * \ingroup Daplug
  * \fn void Daplug_setKeyboardAtBoot(DaplugDongle *dpd, int activated)
  * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
  * \param activated A flag indicating if we want to enable/disable the keyboard emulation
+ * \return 1 if success ; 0 if failure
  *
  * Activates or deactivates keyboard emulation when the dongle is plugged.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_setKeyboardAtBoot(DaplugDongle *dpd, int activated);
+int DAPLUGAPI DAPLUGCALL Daplug_setKeyboardAtBoot(DaplugDongle *dpd, int activated);
 
 /**
  * \ingroup Daplug
  * \fn void Daplug_triggerKeyboard(DaplugDongle *dpd)
  * \param dpd Represents the current session used for exchanging APDUs (selected dongle and secure channel informations).
+ * \return 1 if success ; 0 if failure
  *
  * Activates the virtual keyboard once, and plays the content associated as keyboard input file.
+ * To play the keyboard content, keyboard emulation must be activated before using Daplug_setKeyboardAtBoot() function.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_triggerKeyboard(DaplugDongle *dpd);
+int DAPLUGAPI DAPLUGCALL Daplug_triggerKeyboard(DaplugDongle *dpd);
 
 /**
  * \ingroup Daplug
@@ -562,7 +612,7 @@ void DAPLUGAPI DAPLUGCALL Daplug_triggerKeyboard(DaplugDongle *dpd);
  *
  * Change the dongle exchange mode from HID to WinUSB. Change will apply the next time the card boots (replugged or reset).
 */
-void DAPLUGAPI DAPLUGCALL Daplug_hidToWinusb(DaplugDongle *dpd);
+int DAPLUGAPI DAPLUGCALL Daplug_hidToWinusb(DaplugDongle *dpd);
 
 /**
  * \ingroup Daplug
@@ -571,7 +621,7 @@ void DAPLUGAPI DAPLUGCALL Daplug_hidToWinusb(DaplugDongle *dpd);
  *
  * Change the dongle exchange mode from WinUSB to HID. Change will apply the next time the card boots (replugged or reset).
 */
-void DAPLUGAPI DAPLUGCALL Daplug_winusbToHid(DaplugDongle *dpd);
+int DAPLUGAPI DAPLUGCALL Daplug_winusbToHid(DaplugDongle *dpd);
 
 /**
  * \ingroup Daplug
@@ -580,7 +630,7 @@ void DAPLUGAPI DAPLUGCALL Daplug_winusbToHid(DaplugDongle *dpd);
  *
  * Performs a warm reset of the dongle.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_reset(DaplugDongle *dpd);
+int DAPLUGAPI DAPLUGCALL Daplug_reset(DaplugDongle *dpd);
 
 /**
  * \ingroup Daplug
@@ -589,7 +639,25 @@ void DAPLUGAPI DAPLUGCALL Daplug_reset(DaplugDongle *dpd);
  *
  * Blocks future commands sent to the dongle with a 6FAA status until the dongle is physically disconnected and reconnected from the USB port.
 */
-void DAPLUGAPI DAPLUGCALL Daplug_halt(DaplugDongle *dpd);
+int DAPLUGAPI DAPLUGCALL Daplug_halt(DaplugDongle *dpd);
+
+/**
+ * \ingroup Daplug
+ * \fn void Daplug_close(DaplugDongle *dpd)
+ *
+ * Close opened secure channel session, release selected dongle (if HID device)
+ * and free allocated memory associated to a DaplugDongle.
+*/
+void DAPLUGAPI DAPLUGCALL Daplug_close(DaplugDongle *dpd);
+
+/**
+ * \ingroup Daplug
+ * \fn void Daplug_exit(char ***donglesList)
+ * \param donglesList The outputed string informative list of connected dongles obtained by the Daplug_getDonglesList().
+ *
+ * Free allocated memory associated to dongles list and deinitialize the libusb used by the Daplug API.
+*/
+void DAPLUGAPI DAPLUGCALL Daplug_exit(char ***donglesList);
 
 #ifdef __cplusplus
 }

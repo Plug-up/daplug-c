@@ -2,8 +2,8 @@
  * \file DaplugDongle.c
  * \brief
  * \author S.BENAMAR s.benamar@plug-up.com
- * \version 1.0
- * \date 02/12/2013
+ * \version 1.2
+ * \date 09/06/2014
  *
  * Daplug API is a set of functions wich are designed to help with operations on Daplug dongle.
  */
@@ -12,8 +12,14 @@
 #include <daplug/comm.h>
 #include <daplug/sc.h>
 #include <daplug/winusb.h>
+#include <daplug/sam.h>
 
-static void initDongle(DaplugDongle* dpd){
+static Dongle_info dongles[CON_DNG_MAX_NB];
+static int dongles_nb;
+
+static void initDongle(DaplugDongle *dpd){
+
+    dpd->di = NULL;
 
     strcpy(dpd->c_mac,"");
     strcpy(dpd->r_mac,"");
@@ -23,12 +29,19 @@ static void initDongle(DaplugDongle* dpd){
     strcpy(dpd->r_mac_key,"");
     strcpy(dpd->s_dek_key,"");
 
-    dpd->securityLevel=0;
-    dpd->session_opened=0;
+    dpd->sessionType = 0;
+
+    dpd->SAMDpd = NULL;
+    dpd->SAMCtxKeyVersion = 0;
+    dpd->SAMCtxKeyId = 0;
+
+    dpd->securityLevel = 0;
+    dpd->session_opened = 0;
+
 
 }
 
-static void encdec(DaplugDongle *dpd, int enc, int keyVersion, int keyID, int mode, char *iv, char *div1, char *div2,
+static int encdec(DaplugDongle *dpd, int enc, int keyVersion, int keyID, int mode, char *iv, char *div1, char *div2,
             char *inData, char *outData){
 
     Apdu enc_dec_apdu;
@@ -43,11 +56,11 @@ static void encdec(DaplugDongle *dpd, int enc, int keyVersion, int keyID, int mo
 
     if(enc != 0x01 && enc != 0x02){
         fprintf(stderr,"\nencdec(): Wrong value for enc !\n");
-        return;
+        return 0;
     }
 
     char iv_[8*2+1]="";
-    if(strlen(iv)==0){
+    if(iv == NULL){
         strcpy(iv_,"0000000000000000");
     }else{
         strcpy(iv_,iv);
@@ -55,20 +68,20 @@ static void encdec(DaplugDongle *dpd, int enc, int keyVersion, int keyID, int mo
 
     if(!isHexInput(iv_) || strlen(iv_)!=8*2){
         fprintf(stderr,"\nencdec(): Wrong IV !\n");
-        return;
+        return 0;
     }
 
     if(mode & ENC_ECB && mode & ENC_CBC){
         fprintf(stderr,"\nencdec(): Wrong mode value !\n");
-        return;
+        return 0;
     }
 
     char div1_[16*2+1]="";
     int lc = 10; //kv, kid, iv
     if(mode & ENC_1_DIV || mode & ENC_2_DIV){
-        if(strlen(div1)==0 || strlen(div1)!=16*2 || !isHexInput(div1)){
+        if(strlen(div1)!=16*2 || !isHexInput(div1)){
             fprintf(stderr,"\nencdec(): Wrong value for the first diversifier !\n");
-            return;
+            return 0;
         }else{
             strcpy(div1_,div1);
             lc = lc + 16;
@@ -77,10 +90,9 @@ static void encdec(DaplugDongle *dpd, int enc, int keyVersion, int keyID, int mo
 
     char div2_[16*2+1]="";
     if(mode & ENC_2_DIV){
-
-        if(strlen(div2)==0 || strlen(div2)!=16*2 || !isHexInput(div2)){
+        if(strlen(div2)!=16*2 || !isHexInput(div2)){
             fprintf(stderr,"\nencdec(): Wrong value for the second diversifier !\n");
-            return;
+            return 0;
         }else{
             strcpy(div2_,div2);
             lc = lc + 16;
@@ -91,11 +103,11 @@ static void encdec(DaplugDongle *dpd, int enc, int keyVersion, int keyID, int mo
 
     if(!isHexInput(inData)){
         fprintf(stderr,"\nencdec(): Wrong value for input data !\n");
-        return;
+        return 0;
     }
     if(strlen(inData) == 0 || strlen(inData)%(8*2) != 0 || lc+strlen(inData)/2 > MAX_REAL_DATA_SIZE){
         fprintf(stderr,"\nencdec(): Wrong length for input data !\n");
-        return;
+        return 0;
     }
 
     strcpy(data_,inData);
@@ -117,10 +129,26 @@ static void encdec(DaplugDongle *dpd, int enc, int keyVersion, int keyID, int mo
     strcat(enc_dec_apdu_str,data_);
 
     //Set to apdu cde
-    setApduCmd(enc_dec_apdu_str,&enc_dec_apdu);
+    if(!setApduCmd(enc_dec_apdu_str,&enc_dec_apdu)){
+        if(enc == 1){
+            fprintf(stderr,"\nencdec(): Cannot encrypt data !\n");
+        }
+        if(enc == 2){
+            fprintf(stderr,"\nencdec(): Cannot decrypt data !\n");
+        }
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&enc_dec_apdu);
+    if(!exchangeApdu(dpd,&enc_dec_apdu)){
+        if(enc == 1){
+            fprintf(stderr,"\nencdec(): Cannot encrypt data !\n");
+        }
+        if(enc == 2){
+            fprintf(stderr,"\nencdec(): Cannot decrypt data !\n");
+        }
+        return 0;
+    }
 
     if(strcmp(enc_dec_apdu.sw_str,"9000")){
         if(enc == 1){
@@ -129,14 +157,16 @@ static void encdec(DaplugDongle *dpd, int enc, int keyVersion, int keyID, int mo
         if(enc == 2){
             fprintf(stderr,"\nencdec(): Cannot decrypt data !\n");
         }
-        return;
+        return 0;
     }
 
     strcpy(outData,enc_dec_apdu.r_str);
 
+    return 1;
+
 }
 
-static void hmac_sha1(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData){
+static int hmac_sha1(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData){
 
     Apdu hmac_apdu;
 
@@ -152,9 +182,9 @@ static void hmac_sha1(DaplugDongle *dpd, int keyVersion, int options, char *div1
     char div1_[16*2+1]="";
 
     if(options & OTP_1_DIV || options & OTP_2_DIV){
-        if(strlen(div1)==0 || strlen(div1)!=16*2 || !isHexInput(div1)){
+        if(strlen(div1)!=16*2 || !isHexInput(div1)){
             fprintf(stderr,"\nhmac_sha1(): Wrong value for the first diversifier !\n");
-            return;
+            return 0;
         }else{
             strcpy(div1_,div1);
             lc = lc + 16;
@@ -165,9 +195,9 @@ static void hmac_sha1(DaplugDongle *dpd, int keyVersion, int options, char *div1
 
     if(options & OTP_2_DIV){
 
-        if(strlen(div2)==0 || strlen(div2)!=16*2 || !isHexInput(div2)){
+        if(strlen(div2)!=16*2 || !isHexInput(div2)){
             fprintf(stderr,"\nhmac_sha1(): Wrong value for the second diversifier !\n");
-            return;
+            return 0;
         }else{
             strcpy(div2_,div2);
             lc = lc + 16;
@@ -178,12 +208,12 @@ static void hmac_sha1(DaplugDongle *dpd, int keyVersion, int options, char *div1
 
     if(!isHexInput(inData)){
         fprintf(stderr,"\nhmac_sha1(): Wrong value for input data !\n");
-        return;
+        return 0;
     }
 
     if(lc+strlen(inData)/2 > MAX_REAL_DATA_SIZE){ //for Daplug_totp, data can be null => we exclude condition strlen(inData) = 0
         fprintf(stderr,"\nhmac_sha1(): Wrong length for input data !\n");
-        return;
+        return 0;
     }
 
     strcpy(data_,inData);
@@ -202,25 +232,34 @@ static void hmac_sha1(DaplugDongle *dpd, int keyVersion, int options, char *div1
     strcat(hmac_apdu_str,data_);
 
     //Set to apdu cde
-    setApduCmd(hmac_apdu_str,&hmac_apdu);
+    if(!setApduCmd(hmac_apdu_str,&hmac_apdu)){
+        fprintf(stderr,"\nhmac_sha1(): Cannot sign data !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&hmac_apdu);
+    if(!exchangeApdu(dpd,&hmac_apdu)){
+        fprintf(stderr,"\nhmac_sha1(): Cannot sign data !\n");
+        return 0;
+    }
 
     if(strcmp(hmac_apdu.sw_str,"9000")){
         fprintf(stderr,"\nhmac_sha1(): Cannot sign data !\n");
-        return;
+        return 0;
     }
 
     strcpy(outData,hmac_apdu.r_str);
 
+    return 1;
+
 }
 
-int DAPLUGCALL Daplug_getDongleList(Dongle_info *dil){
+int DAPLUGCALL Daplug_getDonglesList(char ***donglesList){
 
     struct hid_device_info *lh;
 
     int i=0;
+    dongles_nb = 0;
 
     //Enumerate & initialize hid devices
     if(!(lh=hid_enumerate(HID_VID,HID_PID))){
@@ -234,8 +273,8 @@ int DAPLUGCALL Daplug_getDongleList(Dongle_info *dil){
             lh=lh->next;
             #endif
 
-            dil[i].type = HID_DEVICE;
-            dil[i].path = (char*)lh->path;
+            dongles[i].type = HID_DEVICE;
+            dongles[i].path = (char*)lh->path;
 
             lh=lh->next;
             i++;
@@ -248,69 +287,100 @@ int DAPLUGCALL Daplug_getDongleList(Dongle_info *dil){
     winusb_device *wdl[CON_DNG_MAX_NB];
     int nb_wd = listWinusbDevices(wdl);
     int j = 0;
-    if(nb_wd <= 0) return i;
+    //if(nb_wd <= 0) return i;
     while(j < nb_wd && i < CON_DNG_MAX_NB){
-        dil[i].type = WINUSB_DEVICE;
-        dil[i].handle = (winusb_device *) wdl[j];
+        dongles[i].type = WINUSB_DEVICE;
+        dongles[i].handle = (winusb_device *) wdl[j];
         j++;
         i++;
     }
 
-    return i; //number of connected plug-ups
-}
+    dongles_nb = i;
 
-int DAPLUGCALL Daplug_getDongleById(Dongle_info* di,DaplugDongle *dpd){
+    if(dongles_nb > 0){
+        //Dongles list
+        *donglesList = (char**) calloc(CON_DNG_MAX_NB, sizeof(char*));
 
-    if(di->type == HID_DEVICE){
-        if((di->handle = (hid_device *)hid_open_path(di->path)) == NULL){
-            fprintf(stderr,"\ngetDongleById(): Cannot open hid dongle !\n");
-            return 0;
+        i = 0;
+        for(i=0;i<dongles_nb;i++){
+            (*donglesList)[i] = (char*) calloc(10, sizeof(char));
+            if(dongles[i].type == HID_DEVICE){
+                sprintf((*donglesList)[i], "HID_%02d", i);
+            }
+            if(dongles[i].type == WINUSB_DEVICE){
+                sprintf((*donglesList)[i], "WINUSB_%02d", i);
+            }
         }
+    }else{
+        fprintf(stderr,"\nDaplug_getDonglesList(): No Daplug dongle inserted !\n");
+        return 0;
     }
 
-    if(di->type == WINUSB_DEVICE){
-        if(initWinusbDevice(di->handle) == 0){
-            fprintf(stderr,"\ngetDongleById(): Cannot open winusb dongle !\n");
-            return 0;
+    return dongles_nb; //number of connected plug-ups
+}
+
+DaplugDongle* DAPLUGCALL Daplug_getDongleById(int i){
+
+    DaplugDongle *dpd = (DaplugDongle*) calloc(1, sizeof(DaplugDongle));
+
+    if(!dpd){
+        fprintf(stderr,"\ngetDongleById(): Memory problem !\n");
+        return NULL;
+    }
+
+    if((i < 0) || ((i+1) > dongles_nb)){
+        fprintf(stderr,"\ngetDongleById(): Invalid index %02d !\n", i);
+        return NULL;
+    }
+
+    if(dongles[i].type == HID_DEVICE){
+        if((dongles[i].handle = (hid_device *)hid_open_path(dongles[i].path)) == NULL){
+            fprintf(stderr,"\ngetDongleById(): Cannot open hid dongle !\n");
+            return NULL;
         }
+    }else if(dongles[i].type == WINUSB_DEVICE){
+        if(initWinusbDevice(dongles[i].handle) == 0){
+            fprintf(stderr,"\ngetDongleById(): Cannot open winusb dongle !\n");
+            return NULL;
+        }
+    }else{
+        return NULL;
     }
 
     initDongle(dpd);
-    dpd->di = (Dongle_info) *di;
+    dpd->di = (Dongle_info*) &dongles[i];
 
-    return 1;
+    return dpd;
 }
 
-void DAPLUGCALL Daplug_free(DaplugDongle *dpd, Dongle_info *dil, int nb){
+DaplugDongle * DAPLUGCALL Daplug_getFirstDongle(){
 
-    Daplug_deAuthenticate(dpd);
+    DaplugDongle *dpd = Daplug_getDongleById(0);
 
-    //if Hid device
-    if(dpd->di.type == 0) hid_close(dpd->di.handle);
-
-    //free winusb devices list
-    int i;
-    for(i=0;i<nb;i++){
-        if(dil[i].type == WINUSB_DEVICE){
-            freeWinusbDevice(dil[i].handle);
-        }
+    if(!dpd){
+        fprintf(stderr,"\nDaplug_getFirstDongle(): Cannot select dongle !\n");
+        return NULL;
     }
-}
 
-void DAPLUGCALL Daplug_exit(){
-    winusbExit();
-    hid_exit();
+    return dpd;
+
 }
 
 int DAPLUGCALL Daplug_exchange(DaplugDongle *dpd, const char *cmd, char *resp, char *sw){
 
     Apdu a;
-    setApduCmd(cmd,&a);
+    if(!setApduCmd(cmd,&a)){
+        fprintf(stderr,"\nDaplug_exchange(): Cannot exchange Apdu !\n");
+        return 0;
+    }
 
-    exchangeApdu(dpd,&a);
+    if(!exchangeApdu(dpd,&a)){
+        fprintf(stderr,"\nDaplug_exchange(): Cannot exchange Apdu !\n");
+        return 0;
+    }
 
     if(strcmp(a.sw_str,"9000")){
-        fprintf(stderr,"\nDaplug_exchange(): An error occured when exchanging command !\n");
+        fprintf(stderr,"\nDaplug_exchange(): Cannot exchange Apdu !\n");
         return 0;
     }
 
@@ -323,12 +393,18 @@ int DAPLUGCALL Daplug_exchange(DaplugDongle *dpd, const char *cmd, char *resp, c
 int DAPLUGCALL Daplug_getDongleSerial(DaplugDongle *dpd, char* serial){
 
     Apdu apc_get_serial;
-    setApduCmd("80E6000000",&apc_get_serial);
+    if(!setApduCmd("80E6000000",&apc_get_serial)){
+        fprintf(stderr,"\ngetDongleSerial(): Cannot get SN !\n");
+        return 0;
+    }
 
-    exchangeApdu(dpd,&apc_get_serial);
+    if(!exchangeApdu(dpd,&apc_get_serial)){
+        fprintf(stderr,"\ngetDongleSerial(): Cannot get SN !\n");
+        return 0;
+    }
 
     if(strcmp(apc_get_serial.sw_str,"9000")){
-        fprintf(stderr,"\ngetDongleSerial(): An error occured when exchanging command !\n");
+        fprintf(stderr,"\ngetDongleSerial(): Cannot get SN !\n");
         return 0;
     }
 
@@ -337,15 +413,61 @@ int DAPLUGCALL Daplug_getDongleSerial(DaplugDongle *dpd, char* serial){
     return 1;
 }
 
+int DAPLUGCALL Daplug_getChipDiversifier(DaplugDongle *dpd, char *chipDiversifier){
+
+    char serial[18*2+1]="";
+    char div[16*2+1]="";
+    char part1[10*2+1]="", part2[6*2+1]="";
+    char *tmp = NULL;
+
+    Byte part2_b[6];
+
+    if(!Daplug_getDongleSerial(dpd, serial)){
+        fprintf(stderr, "\nDaplug_getChipDiversifier() : Cannot get chip diversifier !\n");
+        return 0;
+    }
+
+    strcpy(part1, tmp = str_sub(serial, 0, 10*2-1)); //first 10 bytes of serial
+    free(tmp);
+    tmp = NULL;
+
+    strcpy(part2, tmp = str_sub(serial, 0, 6*2-1)); //first 6 bytes of serial
+    free(tmp);
+    tmp = NULL;
+    strToBytes(part2, part2_b);
+
+    //0x42 XOR part2 bytes
+    int i;
+    for(i=0; i<6; i++){
+        part2_b[i] = part2_b[i] ^ 0x42;
+    }
+
+    bytesToStr(part2_b,6,part2);
+
+    strcat(div, part1);
+    strcat(div, part2);
+
+    strcpy(chipDiversifier, div);
+
+    return 1;
+
+}
+
 int DAPLUGCALL Daplug_getDongleStatus(DaplugDongle *dpd, int *status){
 
     Apdu apc_get_status;
-    setApduCmd("80F2400000",&apc_get_status);
+    if(!setApduCmd("80F2400000",&apc_get_status)){
+        fprintf(stderr,"\ngetDongleStatus(): Cannot get dongle status !\n");
+        return 0;
+    }
 
-    exchangeApdu(dpd,&apc_get_status);
+    if(!exchangeApdu(dpd,&apc_get_status)){
+        fprintf(stderr,"\ngetDongleStatus(): Cannot get dongle status !\n");
+        return 0;
+    }
 
     if(strcmp(apc_get_status.sw_str,"9000")){
-        fprintf(stderr,"\ngetDongleStatus(): An error occured when exchanging command !\n");
+        fprintf(stderr,"\ngetDongleStatus(): Cannot get dongle status !\n");
         return 0;
     }
 
@@ -366,12 +488,18 @@ int DAPLUGCALL Daplug_setDongleStatus(DaplugDongle *dpd, int status){
     strcat(set_status,"00");
 
     Apdu apc_set_status;
-    setApduCmd(set_status,&apc_set_status);
+    if(!setApduCmd(set_status,&apc_set_status)){
+        fprintf(stderr,"\nsetDongleStatus(): Cannot set dongle status !\n");
+        return 0;
+    }
 
-    exchangeApdu(dpd,&apc_set_status);
+    if(!exchangeApdu(dpd,&apc_set_status)){
+        fprintf(stderr,"\nsetDongleStatus(): Cannot set dongle status !\n");
+        return 0;
+    }
 
     if(strcmp(apc_set_status.sw_str,"9000")){
-        fprintf(stderr,"\nsetDongleStatus(): An error occured when exchanging command !\n");
+        fprintf(stderr,"\nsetDongleStatus(): Cannot set dongle status !\n");
         return 0;
     }
 
@@ -379,7 +507,7 @@ int DAPLUGCALL Daplug_setDongleStatus(DaplugDongle *dpd, int status){
 
 }
 
-void DAPLUGCALL Daplug_authenticate(DaplugDongle *dpd, Keyset keys, int mode, char *div, char *chlg){
+int DAPLUGCALL Daplug_authenticate(DaplugDongle *dpd, Keyset keys, int mode, char *div, char *chlg){
 
     Byte hostChallenge[8];
 
@@ -397,14 +525,17 @@ void DAPLUGCALL Daplug_authenticate(DaplugDongle *dpd, Keyset keys, int mode, ch
     //close any sc previously opened
     Daplug_deAuthenticate(dpd);
 
-    if(!strcmp(chlg,"")){
+    //Set session type
+    dpd->sessionType = SOFT_SC;
+
+    if(chlg == NULL){
         //generate host challenge
         generateChallenge(hostChallenge,8);
         bytesToStr(hostChallenge,8,s_hostChallenge);
     }else{
         if(strlen(chlg)!=8*2 || !isHexInput(chlg)){
             fprintf(stderr,"\nDaplug_authenticate(): Wrong value for challenge !\n");
-            return;
+            return 0;
         }
         strncpy(s_hostChallenge,chlg,16);
         s_hostChallenge[16]='\0';
@@ -415,20 +546,23 @@ void DAPLUGCALL Daplug_authenticate(DaplugDongle *dpd, Keyset keys, int mode, ch
     sprintf(version,"%02X",keys.version);
 
     //Any diversifier?
-    if(strlen(div) != 0){
+    if(div != NULL){
         if(strlen(div)!=16*2 || !isHexInput(div)){
-        fprintf(stderr,"\nDaplug_authenticate(): Wrong value for diversifier !\n");
-        return;
+            fprintf(stderr,"\nDaplug_authenticate(): Wrong value for diversifier !\n");
+            return 0;
         }
     }
 
-    if(strlen(div) == 0){
+    if(div == NULL){
         //initialize update without diversifier
         strcat(temp,"8050");
         strcat(temp,version);
         strcat(temp,"0008");
         strcat(temp,s_hostChallenge);
-        setApduCmd(temp,&initialize_update);
+        if(!setApduCmd(temp,&initialize_update)){
+            fprintf(stderr,"\nDaplug_authenticate(): authentication failed !\n");
+            return 0;
+        }
     }else{
         //diversified initialize update
         strcat(temp,"D050");
@@ -436,16 +570,22 @@ void DAPLUGCALL Daplug_authenticate(DaplugDongle *dpd, Keyset keys, int mode, ch
         strcat(temp,"1018");
         strcat(temp,s_hostChallenge);
         strcat(temp,div);
-        setApduCmd(temp,&initialize_update);
+        if(!setApduCmd(temp,&initialize_update)){
+            fprintf(stderr,"\nDaplug_authenticate(): authentication failed !\n");
+            return 0;
+        }
     }
 
     //exchange
-    exchangeApdu(dpd,&initialize_update);
+    if(!exchangeApdu(dpd,&initialize_update)){
+        fprintf(stderr,"\nDaplug_authenticate(): authentication failed !\n");
+        return 0;
+    }
 
     if(strcmp(initialize_update.sw_str,"9000")){
-        fprintf(stderr,"\nauthenticate(): initialize update error ! sw = %s\n",
+        fprintf(stderr,"\nDaplug_authenticate(): initialize update error ! sw = %s\n",
                 initialize_update.sw_str);
-        return;
+        return 0;
     }
 
     //extract data returned by the card
@@ -489,8 +629,8 @@ void DAPLUGCALL Daplug_authenticate(DaplugDongle *dpd, Keyset keys, int mode, ch
 
     //check card cryptogram
     if(!checkCardCryptogram(returnedCardCryptogram,computedCardCryptogram)){
-        fprintf(stderr,"\nauthenticate(): Card Cryptogram verification failed !\n");
-        return;
+        fprintf(stderr,"\nDaplug_authenticate(): Card Cryptogram verification failed !\n");
+        return 0;
     }
     else{
         //compute data that an external Daplug_authenticate apdu needs
@@ -500,34 +640,214 @@ void DAPLUGCALL Daplug_authenticate(DaplugDongle *dpd, Keyset keys, int mode, ch
         char sec_l[1*2+1]="";
         sprintf(sec_l,"%02X",mode);
 
-        //external Daplug_authenticate
+        //external authenticate
         strcpy(temp,""),
         strcat(temp,"8082");
         strcat(temp,sec_l);
         strcat(temp,"0008");
         strcat(temp,hostCryptogram);
-        setApduCmd(temp,&external_authenticate);
+        if(!setApduCmd(temp,&external_authenticate)){
+            fprintf(stderr,"\nDaplug_authenticate(): authentication failed !\n");
+            return 0;
+        }
 
         //exchange
-        exchangeApdu(dpd,&external_authenticate);
+        if(!exchangeApdu(dpd,&external_authenticate)){
+            fprintf(stderr,"\nDaplug_authenticate(): authentication failed !\n");
+            return 0;
+        }
 
         if(strcmp(external_authenticate.sw_str,"9000")){
-            fprintf(stderr,"\nauthenticate(): external Daplug_authenticate error ! sw = %s\n",
+            fprintf(stderr,"\nDaplug_authenticate(): external authenticate error ! sw = %s\n",
                     external_authenticate.sw_str);
-            return;
+            return 0;
         }
 
     }
 
-    fprintf(stderr,"\nauthenticate() : Successful authentication !\n");
+    fprintf(stderr,"\nDaplug_authenticate() : Successful authentication on keyset 0x%02X\n", keys.version);
 
     //update dpd
     strcpy(dpd->r_mac,dpd->c_mac);
     dpd->securityLevel = mode;
     dpd->session_opened = 1;
+
+    return 1;
 }
 
-void DAPLUGCALL Daplug_computeDiversifiedKeys(Keyset keys, Keyset *div_keys, char *div){
+int DAPLUGCALL Daplug_authenticateUsingSAM(DaplugDongle *daplugCard, DaplugDongle *daplugSAM,
+                                          int SAMCtxKeyVersion, int SAMCtxKeyId, int SAMGPUsableKeyVersion,
+                                          int TargetKeyVersion, int mode, char *div1, char *div2){
+
+    Byte hostChallenge[8];
+
+    char counter[2*2+1] = "",
+         cardChallenge[6*2+1] = "",
+         returnedCardCryptogram[8*2+1]="",
+         computedCardCryptogram[8*2+1]="",
+         hostCryptogram[8*2+1] = "",
+         s_hostChallenge[8*2+1]="",
+         temp[APDU_CMD_MAXLEN*2+1]="";
+
+    Apdu initialize_update,
+         external_authenticate;
+
+    //close any sc previously opened
+    Daplug_deAuthenticate(daplugCard);
+
+    //Set session type
+    daplugCard->sessionType = HARD_SC;
+
+    //Set session SAM context data
+    daplugCard->SAMDpd = daplugSAM;
+    daplugCard->SAMCtxKeyVersion = SAMCtxKeyVersion;
+    daplugCard->SAMCtxKeyId = SAMCtxKeyId;
+
+    //generate host challenge
+    generateChallenge(hostChallenge,8);
+    bytesToStr(hostChallenge,8,s_hostChallenge);
+
+    //Target Key Version
+    char version_str[1*2+1]="";
+    sprintf(version_str,"%02X",TargetKeyVersion);
+
+    //Form the initialize update Apdu
+    strcat(temp,"8050");
+    strcat(temp,version_str);
+    strcat(temp,"0008");
+    strcat(temp,s_hostChallenge);
+    if(!setApduCmd(temp,&initialize_update)){
+        fprintf(stderr,"\nDaplug_authenticateUsingSAM(): authentication failed !\n");
+        return 0;
+    }
+
+    //exchange
+    if(!exchangeApdu(daplugCard,&initialize_update)){
+        fprintf(stderr,"\nDaplug_authenticateUsingSAM(): authentication failed !\n");
+        return 0;
+    }
+
+    if(strcmp(initialize_update.sw_str,"9000")){
+        fprintf(stderr,"\nDaplug_authenticateUsingSAM(): initialize update error ! sw = %s\n",
+                initialize_update.sw_str);
+        return 0;
+    }
+
+    //extract data returned by the card
+    char *tmp = NULL;
+    strcpy(counter,tmp = str_sub(initialize_update.r_str, 24, 27));
+    free(tmp);
+    tmp = NULL;
+    strcpy(cardChallenge,tmp = str_sub(initialize_update.r_str, 28, 39));
+    free(tmp);
+    tmp = NULL;
+    strcpy(returnedCardCryptogram,tmp = str_sub(initialize_update.r_str, 40, 55));
+    free(tmp);
+    tmp = NULL;
+
+    //Compute session keys SAM material
+
+    //SAM DIVERSIFY GP Apdu
+    int flag = SAM_GEN_DEK + SAM_GEN_RENC + SAM_GEN_RMAC;
+
+    //Diversifiers
+    if(div1 == NULL){
+        fprintf(stderr,"\nDaplug_authenticateUsingSAM(): Parameter div1 is required !\n");
+        return 0;
+    }
+    if(div2 != NULL){ //diversifier2
+        flag = flag + SAM_2_DIV;
+    }else{
+        flag = flag + SAM_1_DIV;
+    }
+
+    //Counter
+    int cnt;
+    sscanf(counter,"%04X",&cnt);
+
+    //Compute session keys SAM material
+    char **sessionSAMKeys = SAM_computeSessionKeys(daplugCard->SAMDpd, daplugCard->SAMCtxKeyVersion, daplugCard->SAMCtxKeyId,
+                                                   SAMGPUsableKeyVersion, flag, cnt, div1, div2);
+
+    if(sessionSAMKeys == NULL){
+        fprintf(stderr,"\nDaplug_authenticateUsingSAM(): An error occured when computing session SAM keys !\n");
+        return 0;
+    }
+
+    strcpy(daplugCard->s_enc_key,sessionSAMKeys[0]);
+    strcpy(daplugCard->c_mac_key,sessionSAMKeys[1]);
+    strcpy(daplugCard->s_dek_key,sessionSAMKeys[2]);
+    strcpy(daplugCard->r_mac_key,sessionSAMKeys[3]);
+    strcpy(daplugCard->r_enc_key,sessionSAMKeys[4]);
+
+    //free allocated memory
+    int i;
+    for(i=0;i<5;i++){
+        free(sessionSAMKeys[i]);
+    }
+    free(sessionSAMKeys);
+
+    //Compute card cryptogram using SAM
+    if(!SAM_computeCryptogram(daplugCard->SAMDpd, daplugCard->SAMCtxKeyVersion, daplugCard->SAMCtxKeyId, daplugCard->s_enc_key,
+                          s_hostChallenge, cardChallenge, counter, SAM_CARD_CRYPTOGRAM, computedCardCryptogram)){
+        fprintf(stderr,"\nDaplug_authenticateUsingSAM(): An error occured when computing card cryptogram !\n");
+        return 0;
+    }
+
+    //check card cryptogram
+    if(!checkCardCryptogram(returnedCardCryptogram,computedCardCryptogram)){
+        fprintf(stderr,"\nDaplug_authenticateUsingSAM(): Card Cryptogram verification failed !\n");
+        return 0;
+    }
+    else{
+        //Compute host cryptogram using SAM
+        if(!SAM_computeCryptogram(daplugCard->SAMDpd, daplugCard->SAMCtxKeyVersion, daplugCard->SAMCtxKeyId, daplugCard->s_enc_key,
+                              s_hostChallenge, cardChallenge, counter, SAM_HOST_CRYPTOGRAM, hostCryptogram)){
+            fprintf(stderr,"\nDaplug_authenticateUsingSAM(): An error occured when computing host cryptogram !\n");
+            return 0;
+        }
+
+        //mode
+        char sec_l[1*2+1]="";
+        sprintf(sec_l,"%02X",mode);
+
+        //external authenticate
+        strcpy(temp,""),
+        strcat(temp,"8082");
+        strcat(temp,sec_l);
+        strcat(temp,"0008");
+        strcat(temp,hostCryptogram);
+        if(!setApduCmd(temp,&external_authenticate)){
+            fprintf(stderr,"\nDaplug_authenticateUsingSAM(): authentication failed !\n");
+            return 0;
+        }
+
+        //exchange
+        if(!exchangeApdu(daplugCard,&external_authenticate)){
+            fprintf(stderr,"\nDaplug_authenticateUsingSAM(): authentication failed !\n");
+            return 0;
+        }
+
+        if(strcmp(external_authenticate.sw_str,"9000")){
+            fprintf(stderr,"\nDaplug_authenticateUsingSAM(): external authenticate error ! sw = %s\n",
+                    external_authenticate.sw_str);
+            return 0;
+        }
+
+    }
+
+    fprintf(stderr,"\nDaplug_authenticateUsingSAM() : Successful authentication on keyset 0x%02X\n", TargetKeyVersion);
+
+    //update daplugCard
+    strcpy(daplugCard->r_mac,daplugCard->c_mac);
+    daplugCard->securityLevel = mode;
+    daplugCard->session_opened = 1;
+
+    return 1;
+
+}
+
+int DAPLUGCALL Daplug_computeDiversifiedKeys(DaplugDongle *dpd, Keyset keys, Keyset *div_keys, char *div){
 
     char enc_key[GP_KEY_SIZE*2+1]="",
          mac_key[GP_KEY_SIZE*2+1]="",
@@ -537,9 +857,9 @@ void DAPLUGCALL Daplug_computeDiversifiedKeys(Keyset keys, Keyset *div_keys, cha
          div_mac_key[GP_KEY_SIZE*2+1]="",
          div_dek_key[GP_KEY_SIZE*2+1]="";
 
-    if(strlen(div)==0 || strlen(div)!=16*2 || !isHexInput(div)){
+    if(strlen(div)!=16*2 || !isHexInput(div)){
         fprintf(stderr,"\nDaplug_ComputeDiversifiedKeys(): Wrong value for diversifier !\n");
-        return;
+        return 0;
     }
 
     bytesToStr(keys.key[0],GP_KEY_SIZE,enc_key);
@@ -554,9 +874,11 @@ void DAPLUGCALL Daplug_computeDiversifiedKeys(Keyset keys, Keyset *div_keys, cha
     strToBytes(div_mac_key,div_keys->key[1]);
     strToBytes(div_dek_key,div_keys->key[2]);
 
+    return 1;
+
 }
 
-void DAPLUGCALL Daplug_deAuthenticate(DaplugDongle *dpd){
+int DAPLUGCALL Daplug_deAuthenticate(DaplugDongle *dpd){
 
     if(dpd->session_opened){
 
@@ -568,20 +890,39 @@ void DAPLUGCALL Daplug_deAuthenticate(DaplugDongle *dpd){
         strcpy(dpd->r_mac_key,"");
         strcpy(dpd->s_dek_key,"");
 
+        dpd->sessionType = 0;
+
+        dpd->SAMDpd = NULL;
+        dpd->SAMCtxKeyVersion = 0;
+        dpd->SAMCtxKeyId = 0;
+
         dpd->securityLevel=0;
         dpd->session_opened=0;
 
         //send any apdu to close the SC
         Apdu any_apdu;
-        setApduCmd("0000000000",&any_apdu);
-        exchangeApdu(dpd,&any_apdu);
+        if(!setApduCmd("0000000000",&any_apdu)){
+            fprintf(stderr,"\nDaplug_deAuthenticate() : Cannot de-authenticate !\n");
+            return 0;
+        }
+        if(!exchangeApdu(dpd,&any_apdu)){
+            fprintf(stderr,"\nDaplug_deAuthenticate() : Cannot de-authenticate !\n");
+            return 0;
+        }
 
-        fprintf(stderr,"\ndeAuthenticate() : De-authentication !\n");
-
+        fprintf(stderr,"\nDaplug_deAuthenticate() : De-authentication...\n");
     }
+
+    return 1;
 }
 
-void DAPLUGCALL Daplug_putKey(DaplugDongle *dpd, Keyset new_keys){
+int DAPLUGCALL Daplug_putKey(DaplugDongle *dpd, Keyset new_keys, int itselfParent){
+
+    if(dpd->sessionType == HARD_SC){
+        fprintf(stderr,"\nDaplug_putKey(): This function cannot be used with the current authentication type !");
+        fprintf(stderr,"\nUse Daplug_putKeyUsingSAM() instead !\n");
+        return 0;
+    }
 
     char putkey_apdu_str[APDU_CMD_MAXLEN*2+1]="";
 
@@ -591,7 +932,6 @@ void DAPLUGCALL Daplug_putKey(DaplugDongle *dpd, Keyset new_keys){
 
     //default mode : regular
     char *mode = "81";
-
 
     //the new Keyset gp keys
     char enc_key[16*2+1]="",
@@ -603,34 +943,110 @@ void DAPLUGCALL Daplug_putKey(DaplugDongle *dpd, Keyset new_keys){
     bytesToStr(new_keys.key[2],GP_KEY_SIZE,dek_key);
 
     //key usage
+    int usage = new_keys.usage;
     char ku[1*2+1]="";
-    sprintf(ku,"%02X",new_keys.usage);
+    if(itselfParent){
+        usage = usage + 0x80;
+    }
+    sprintf(ku,"%02X",usage);
 
     //key access
-    char ka[2*2+1]="";
-    bytesToStr(new_keys.access,2,ka);
+    char ka_s[2*2+1]="";
+    int ka = (new_keys.access[0] << 8) + new_keys.access[1];
+    sprintf(ka_s,"%04X",ka);
 
     //Form the put key apdu
-    createPutKeyCommand(kv,mode,dpd->s_dek_key,enc_key,mac_key,dek_key,ku,ka,putkey_apdu_str);
+    if(!createPutKeyCommand(kv,mode,dpd->s_dek_key,enc_key,mac_key,dek_key,ku,ka_s,putkey_apdu_str)){
+        fprintf(stderr,"\nDaplug_putKey(): Cannot create/modify Keyset 0x%02X !\n", new_keys.version);
+        return 0;
+    }
 
     //set to apdu cde
     Apdu putkey_apdu;
-    setApduCmd(putkey_apdu_str,&putkey_apdu);
+    if(!setApduCmd(putkey_apdu_str,&putkey_apdu)){
+        fprintf(stderr,"\nDaplug_putKey(): Cannot create/modify Keyset 0x%02X !\n", new_keys.version);
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&putkey_apdu);
+    if(!exchangeApdu(dpd,&putkey_apdu)){
+        fprintf(stderr,"\nDaplug_putKey(): Cannot create/modify Keyset 0x%02X !\n", new_keys.version);
+        return 0;
+    }
 
     if(strcmp(putkey_apdu.sw_str,"9000")){
-        fprintf(stderr,"\nputKey(): Cannot create/modify Keyset !\n");
-        return;
+        fprintf(stderr,"\nDaplug_putKey(): Cannot create/modify Keyset 0x%02X !\n", new_keys.version);
+        return 0;
     }else{
-        fprintf(stderr,"\nputKey(): Keyset %02X successfully created/modified.\n",new_keys.version);
+        fprintf(stderr,"\nDaplug_putKey(): Keyset 0x%02X successfully created/modified.\n",new_keys.version);
+        return 1;
     }
 
 
 }
 
-void DAPLUGCALL Daplug_deleteKey(DaplugDongle *dpd, int version){
+int DAPLUGCALL Daplug_putKeyUsingSAM(DaplugDongle *dpd, int newKeyVersion, int access, int usage,
+                                     int SAMProvisionableKeyVersion, char *div1, char *div2, int itselfParent){
+
+    if(dpd->sessionType == SOFT_SC){
+        fprintf(stderr,"\nDaplug_putKeyUsingSAM(): This function cannot be used with the current authentication type !");
+        fprintf(stderr,"\nUse Daplug_putKey() instead !\n");
+        return 0;
+    }
+
+    char putkey_apdu_str[APDU_CMD_MAXLEN*2+1]="";
+
+    //key version
+    char kv[1*2+1]="";
+    sprintf(kv,"%02X",newKeyVersion);
+
+    //default mode : regular
+    char *mode = "81";
+
+    //key usage
+    int usg = usage;
+    char ku[1*2+1]="";
+    if(itselfParent){
+        usg = usg + 0x80;
+    }
+    sprintf(ku,"%02X",usage);
+
+    //key access
+    char ka[2*2+1]="";
+    sprintf(ka,"%04X",access);
+
+    //Form the put key apdu
+   if(!SAM_createPutKeyCommand(dpd->SAMDpd, dpd->SAMCtxKeyVersion, dpd->SAMCtxKeyId, SAMProvisionableKeyVersion,
+                               dpd->s_dek_key, div1, div2, kv, mode, ku, ka, putkey_apdu_str)){
+        fprintf(stderr,"\nDaplug_putKeyUsingSAM(): Cannot create/modify Keyset 0x%02X !\n", newKeyVersion);
+        return 0;
+    }
+
+    //set to apdu cde
+    Apdu putkey_apdu;
+    if(!setApduCmd(putkey_apdu_str,&putkey_apdu)){
+        fprintf(stderr,"\nDaplug_putKeyUsingSAM(): Cannot create/modify Keyset 0x%02X !\n", newKeyVersion);
+        return 0;
+    }
+
+    //exchange it
+    if(!exchangeApdu(dpd,&putkey_apdu)){
+        fprintf(stderr,"\nDaplug_putKeyUsingSAM(): Cannot create/modify Keyset 0x%02X !\n", newKeyVersion);
+        return 0;
+    }
+
+    if(strcmp(putkey_apdu.sw_str,"9000")){
+        fprintf(stderr,"\nDaplug_putKeyUsingSAM(): Cannot create/modify Keyset 0x%02X !\n", newKeyVersion);
+        return 0;
+    }else{
+        fprintf(stderr,"\nDaplug_putKeyUsingSAM(): Keyset 0x%02X successfully created/modified.\n",newKeyVersion);
+        return 1;
+    }
+
+
+}
+
+int DAPLUGCALL Daplug_deleteKey(DaplugDongle *dpd, int version){
 
     char kid[2*2+1]="10",
          v[1*2+1]="";
@@ -641,12 +1057,22 @@ void DAPLUGCALL Daplug_deleteKey(DaplugDongle *dpd, int version){
     strcat(kid,v);
     sscanf(kid,"%04X",&keyset_fileId);
 
-    Daplug_selectPath(dpd,"3f00c00fc0de0001");
-    Daplug_deleteFileOrDir(dpd,keyset_fileId);
+    if(!Daplug_selectPath(dpd, "3f00c00fc0de0001")){
+        fprintf(stderr,"\nDaplug_deleteKey(): Cannot delete Keyset 0x%02X !\n", version);
+        return 0;
+    }
+
+    if(!Daplug_deleteFileOrDir(dpd, keyset_fileId)){
+        fprintf(stderr,"\nDaplug_deleteKey(): Cannot delete Keyset 0x%02X !\n", version);
+        return 0;
+    }
+
+    fprintf(stdout,"\nDaplug_deleteKey(): Keyset 0x%02X successfuly deleted !\n", version);
+    return 1;
 
 }
 
-void DAPLUGCALL Daplug_exportKey(DaplugDongle *dpd,int version,int id, char *expkey){
+int DAPLUGCALL Daplug_exportKey(DaplugDongle *dpd, int version,int id, char *expkey){
 
     char exp_tr_keyset_apdu_str[APDU_CMD_MAXLEN*2+1]="";
 
@@ -666,22 +1092,28 @@ void DAPLUGCALL Daplug_exportKey(DaplugDongle *dpd,int version,int id, char *exp
 
     //Set to apdu cde
     Apdu exp_tr_keyset_apdu;
-    setApduCmd(exp_tr_keyset_apdu_str,&exp_tr_keyset_apdu);
+    if(!setApduCmd(exp_tr_keyset_apdu_str,&exp_tr_keyset_apdu)){
+        fprintf(stderr,"\nexportKey(): Cannot export key !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&exp_tr_keyset_apdu);
+    if(!exchangeApdu(dpd,&exp_tr_keyset_apdu)){
+        fprintf(stderr,"\nexportKey(): Cannot export key !\n");
+        return 0;
+    }
 
     if(strcmp(exp_tr_keyset_apdu.sw_str,"9000")){
         fprintf(stderr,"\nexportKey(): Cannot export key !\n");
-        return;
+        return 0;
     }else{
         strcpy(expkey,exp_tr_keyset_apdu.r_str);
         fprintf(stderr,"\nexportKey(): Key successfully exported.\n");
-        return;
+        return 1;
     }
 }
 
-void DAPLUGCALL Daplug_importKey(DaplugDongle *dpd,int version,int id, char *impkey){
+int DAPLUGCALL Daplug_importKey(DaplugDongle *dpd, int version,int id, char *impkey){
 
     char imp_tr_keyset_apdu_str[APDU_CMD_MAXLEN*2+1]="";
 
@@ -706,22 +1138,28 @@ void DAPLUGCALL Daplug_importKey(DaplugDongle *dpd,int version,int id, char *imp
 
     //Set to apdu cde
     Apdu imp_tr_keyset_apdu;
-    setApduCmd(imp_tr_keyset_apdu_str,&imp_tr_keyset_apdu);
+    if(!setApduCmd(imp_tr_keyset_apdu_str,&imp_tr_keyset_apdu)){
+        fprintf(stderr,"\nimportKey(): Cannot import key !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&imp_tr_keyset_apdu);
+    if(!exchangeApdu(dpd,&imp_tr_keyset_apdu)){
+        fprintf(stderr,"\nimportKey(): Cannot import key !\n");
+        return 0;
+    }
 
     if(strcmp(imp_tr_keyset_apdu.sw_str,"9000")){
         fprintf(stderr,"\nimportKey(): Cannot import key !\n");
-        return;
+        return 0;
     }else{
         fprintf(stderr,"\nimportKey(): Key successfully imported.\n");
-        return;
+        return 1;
     }
 
 }
 
-void DAPLUGCALL Daplug_createFile(DaplugDongle *dpd, int id, int size, int ac[3], int isFileEnc, int isCntFile){
+int DAPLUGCALL Daplug_createFile(DaplugDongle *dpd, int id, int size, int ac[3], int isFileEnc, int isCntFile){
 
     char create_file_apdu_str[APDU_CMD_MAXLEN*2+1]="80e000001c6214820201218302";
 
@@ -757,20 +1195,27 @@ void DAPLUGCALL Daplug_createFile(DaplugDongle *dpd, int id, int size, int ac[3]
 
     //Set to apdu cde
     Apdu create_file_apdu;
-    setApduCmd(create_file_apdu_str,&create_file_apdu);
+    if(!setApduCmd(create_file_apdu_str,&create_file_apdu)){
+        fprintf(stderr,"\ncreateFile(): Cannot create file %s !\n",id_s);
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&create_file_apdu);
+    if(!exchangeApdu(dpd,&create_file_apdu)){
+        fprintf(stderr,"\ncreateFile(): Cannot create file %s !\n",id_s);
+        return 0;
+    }
 
     if(strcmp(create_file_apdu.sw_str,"9000")){
         fprintf(stderr,"\ncreateFile(): Cannot create file %s !\n",id_s);
-        return;
+        return 0;
     }else{
         fprintf(stderr,"\ncreateFile(): File %s created.\n",id_s);
+        return 1;
     }
 }
 
-void DAPLUGCALL Daplug_createDir(DaplugDongle *dpd, int id, int ac[3]){
+int DAPLUGCALL Daplug_createDir(DaplugDongle *dpd, int id, int ac[3]){
 
     char create_dir_apdu_str[APDU_CMD_MAXLEN*2+1]="80e0000010620e820232218302";
 
@@ -791,20 +1236,27 @@ void DAPLUGCALL Daplug_createDir(DaplugDongle *dpd, int id, int ac[3]){
 
     //Set to apdu cde
     Apdu create_dir_apdu;
-    setApduCmd(create_dir_apdu_str,&create_dir_apdu);
+    if(!setApduCmd(create_dir_apdu_str,&create_dir_apdu)){
+        fprintf(stderr,"\ncreateDir(): Cannot create directory %s !\n",id_s);
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&create_dir_apdu);
+    if(!exchangeApdu(dpd,&create_dir_apdu)){
+        fprintf(stderr,"\ncreateDir(): Cannot create directory %s !\n",id_s);
+        return 0;
+    }
 
     if(strcmp(create_dir_apdu.sw_str,"9000")){
         fprintf(stderr,"\ncreateDir(): Cannot create directory %s !\n",id_s);
-        return;
+        return 0;
     }else{
         fprintf(stderr,"\ncreateDir(): Directory %s created.\n",id_s);
+        return 1;
     }
 }
 
-void DAPLUGCALL Daplug_deleteFileOrDir(DaplugDongle *dpd, int id){
+int DAPLUGCALL Daplug_deleteFileOrDir(DaplugDongle *dpd, int id){
 
     char delete_file_apdu_str[APDU_CMD_MAXLEN*2+1]="80e4000002";
     char id_s[2*2+1]="";
@@ -815,21 +1267,28 @@ void DAPLUGCALL Daplug_deleteFileOrDir(DaplugDongle *dpd, int id){
 
     //Set to apdu cde
     Apdu delete_file_apdu;
-    setApduCmd(delete_file_apdu_str,&delete_file_apdu);
+    if(!setApduCmd(delete_file_apdu_str,&delete_file_apdu)){
+        fprintf(stderr,"\ndeleteFileOrDir(): Cannot delete file %s !\n",id_s);
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&delete_file_apdu);
+    if(!exchangeApdu(dpd,&delete_file_apdu)){
+        fprintf(stderr,"\ndeleteFileOrDir(): Cannot delete file %s !\n",id_s);
+        return 0;
+    }
 
     if(strcmp(delete_file_apdu.sw_str,"9000")){
         fprintf(stderr,"\ndeleteFileOrDir(): Cannot delete file %s !\n",id_s);
-        return;
+        return 0;
     }else{
         fprintf(stderr,"\ndeleteFileOrDir(): File %s deleted.\n",id_s);
+        return 1;
     }
 
 }
 
-void DAPLUGCALL Daplug_selectFile(DaplugDongle *dpd, int id){
+int DAPLUGCALL Daplug_selectFile(DaplugDongle *dpd, int id){
 
     char select_file_apdu_str[APDU_CMD_MAXLEN*2+1]="80a4000002";
 
@@ -841,25 +1300,32 @@ void DAPLUGCALL Daplug_selectFile(DaplugDongle *dpd, int id){
 
     //Set to apdu cde
     Apdu select_file_apdu;
-    setApduCmd(select_file_apdu_str,&select_file_apdu);
+    if(!setApduCmd(select_file_apdu_str,&select_file_apdu)){
+        fprintf(stderr,"\nselectFile(): Cannot select file %s !\n",id_s);
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&select_file_apdu);
+    if(!exchangeApdu(dpd,&select_file_apdu)){
+        fprintf(stderr,"\nselectFile(): Cannot select file %s !\n",id_s);
+        return 0;
+    }
 
     if(strcmp(select_file_apdu.sw_str,"9000")){
         fprintf(stderr,"\nselectFile(): Cannot select file %s !\n",id_s);
-        return;
+        return 0;
     }else{
         fprintf(stderr,"\nselectFile(): File %s selected.\n",id_s);
+        return 1;
     }
 
 }
 
-void DAPLUGCALL Daplug_selectPath(DaplugDongle *dpd, char *path){
+int DAPLUGCALL Daplug_selectPath(DaplugDongle *dpd, char *path){
 
     if(!isHexInput(path) || strlen(path)%4 != 0){
         fprintf(stderr,"\nselectFile(): Wrong path : %s !\n",path);
-        return;
+        return 0;
     }
 
     int i = 0, j = 0, id;
@@ -867,17 +1333,22 @@ void DAPLUGCALL Daplug_selectPath(DaplugDongle *dpd, char *path){
     while(j<strlen(path)/4){
         char *tmp = NULL;
         sscanf(tmp = str_sub(path,i,i+3),"%04X",&id);
+        if(!Daplug_selectFile(dpd, id)){
+            fprintf(stderr,"\nDaplug_selectPath(): Cannot select file in path %s !\n",tmp);
+            return 0;
+        }
         free(tmp);
         tmp = NULL;
-        Daplug_selectFile(dpd,id);
         i = i+4;
         j++;
 
     }
 
+    return 1;
+
 }
 
-void DAPLUGCALL Daplug_readData(DaplugDongle *dpd, int offset, int length, char *read_data){
+int DAPLUGCALL Daplug_readData(DaplugDongle *dpd, int offset, int length, char *read_data){
 
     char read_binary_apdu_str[APDU_CMD_MAXLEN*2+1]="";
     char pos[2*2+1]="";
@@ -889,7 +1360,7 @@ void DAPLUGCALL Daplug_readData(DaplugDongle *dpd, int offset, int length, char 
 
     if(length <=0 || length + p > MAX_FS_FILE_SIZE){
         fprintf(stderr,"\nreadData(): Wrong length !\n");
-        return;
+        return 0;
     }
 
     sprintf(pos,"%04X",p);
@@ -909,14 +1380,20 @@ void DAPLUGCALL Daplug_readData(DaplugDongle *dpd, int offset, int length, char 
         strcat(read_binary_apdu_str,"00");
 
         //Set to apdu cde
-        setApduCmd(read_binary_apdu_str,&read_binary_apdu);
+        if(!setApduCmd(read_binary_apdu_str,&read_binary_apdu)){
+            fprintf(stderr,"\nreadData(): Read failure !\n");
+            return 0;
+        }
 
         //exchange it
-        exchangeApdu(dpd,&read_binary_apdu);
+        if(!exchangeApdu(dpd,&read_binary_apdu)){
+            fprintf(stderr,"\nreadData(): Read failure !\n");
+            return 0;
+        }
 
         if(strcmp(read_binary_apdu.sw_str,"9000")){
             fprintf(stderr,"\nreadData(): Read failure !\n");
-            return;
+            return 0;
         }
 
         strcat(ret,read_binary_apdu.r_str);
@@ -931,9 +1408,11 @@ void DAPLUGCALL Daplug_readData(DaplugDongle *dpd, int offset, int length, char 
 
     strcpy(read_data,ret);
 
+    return 1;
+
 }
 
-void DAPLUGCALL Daplug_writeData(DaplugDongle *dpd, int  offset, char* data_to_write){
+int DAPLUGCALL Daplug_writeData(DaplugDongle *dpd, int  offset, char* data_to_write){
 
     Apdu update_binary_apdu;
 
@@ -948,7 +1427,7 @@ void DAPLUGCALL Daplug_writeData(DaplugDongle *dpd, int  offset, char* data_to_w
 
     if(length%2 !=0 || length <=0 || length + p > MAX_FS_FILE_SIZE || !isHexInput(data_to_write)){
         fprintf(stderr,"\nwriteData(): Wrong data !\n");
-        return;
+        return 0;
     }
 
     sprintf(pos,"%04X",p);
@@ -984,14 +1463,20 @@ void DAPLUGCALL Daplug_writeData(DaplugDongle *dpd, int  offset, char* data_to_w
         strcat(update_binary_apdu_str,part);
 
         //Set to apdu cde
-        setApduCmd(update_binary_apdu_str,&update_binary_apdu);
+        if(!setApduCmd(update_binary_apdu_str,&update_binary_apdu)){
+            fprintf(stderr,"\nwriteData(): Write failure !\n");
+            return 0;
+        }
 
         //exchange it
-        exchangeApdu(dpd,&update_binary_apdu);
+        if(!exchangeApdu(dpd,&update_binary_apdu)){
+            fprintf(stderr,"\nwriteData(): Write failure !\n");
+            return 0;
+        }
 
         if(strcmp(update_binary_apdu.sw_str,"9000")){
             fprintf(stderr,"\nwriteData(): Write failure !\n");
-            return;
+            return 0;
         }
 
         sscanf(pos,"%04X",&p);
@@ -1002,22 +1487,34 @@ void DAPLUGCALL Daplug_writeData(DaplugDongle *dpd, int  offset, char* data_to_w
         write_nb--;
 
     }
+
+    return 1;
 }
 
-void DAPLUGCALL Daplug_encrypt(DaplugDongle *dpd, int keyVersion, int keyID, int mode, char *iv, char *div1, char *div2,
+int DAPLUGCALL Daplug_encrypt(DaplugDongle *dpd, int keyVersion, int keyID, int mode, char *iv, char *div1, char *div2,
             char *inData, char *outData){
 
-    encdec(dpd,0x01, keyVersion, keyID, mode, iv, div1, div2, inData, outData);
+    if(!encdec(dpd, 0x01, keyVersion, keyID, mode, iv, div1, div2, inData, outData)){
+        fprintf(stderr,"\nDaplug_encrypt(): Data encryption failed !\n");
+        return 0;
+    }
+
+    return 1;
 
 }
 
-void DAPLUGCALL Daplug_decrypt(DaplugDongle *dpd, int keyVersion, int keyID, int mode, char *iv, char *div1, char *div2,
+int DAPLUGCALL Daplug_decrypt(DaplugDongle *dpd, int keyVersion, int keyID, int mode, char *iv, char *div1, char *div2,
             char *inData, char *outData){
-    encdec(dpd,0x02, keyVersion, keyID, mode, iv, div1, div2, inData, outData);
+    if(!encdec(dpd, 0x02, keyVersion, keyID, mode, iv, div1, div2, inData, outData)){
+        fprintf(stderr,"\nDaplug_decrypt(): Data decryption failed !\n");
+        return 0;
+    }
+
+    return 1;
 
 }
 
-void DAPLUGCALL Daplug_getRandom(DaplugDongle *dpd, int length, char* random){
+int DAPLUGCALL Daplug_getRandom(DaplugDongle *dpd, int length, char* random){
 
     char gen_rand_apdu_str[APDU_CMD_MAXLEN*2+1]="D0240000";
 
@@ -1025,7 +1522,7 @@ void DAPLUGCALL Daplug_getRandom(DaplugDongle *dpd, int length, char* random){
 
     if(length <=0 || length > MAX_REAL_DATA_SIZE){
         fprintf(stderr,"\ngetRandom(): Invalid random length ! Correct length is between 1 and 239 bytes.\n");
-        return;
+        return 0;
     }
 
     sprintf(len_s,"%02X",length);
@@ -1041,70 +1538,99 @@ void DAPLUGCALL Daplug_getRandom(DaplugDongle *dpd, int length, char* random){
 
     //Set to apdu cde
     Apdu gen_rand_apdu;
-    setApduCmd(gen_rand_apdu_str,&gen_rand_apdu);
+    if(!setApduCmd(gen_rand_apdu_str,&gen_rand_apdu)){
+        fprintf(stderr,"\ngetRandom(): Cannot generate random !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&gen_rand_apdu);
+    if(!exchangeApdu(dpd,&gen_rand_apdu)){
+        fprintf(stderr,"\ngetRandom(): Cannot generate random !\n");
+        return 0;
+    }
 
     if(strcmp(gen_rand_apdu.sw_str,"9000")){
         fprintf(stderr,"\ngetRandom(): Cannot generate random !\n");
-        return;
+        return 0;
     }
 
     strcpy(random,gen_rand_apdu.r_str);
+
+    return 1;
 }
 
-void DAPLUGCALL Daplug_hmac(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData){
+int DAPLUGCALL Daplug_hmac(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData){
 
     if(options & OTP_6_DIGIT || options & OTP_7_DIGIT || options & OTP_8_DIGIT){
         fprintf(stderr,"\nhmac(): Invalid option for Daplug_hmac !\n");
-        return;
+        return 0;
     }
 
-    hmac_sha1(dpd, keyVersion, options, div1, div2, inData, outData);
+    if(!hmac_sha1(dpd, keyVersion, options, div1, div2, inData, outData)){
+        fprintf(stderr,"\nhmac(): Cannot generate hmac signature !\n");
+        return 0;
+    }
+
+    return 1;
 }
 
-void DAPLUGCALL Daplug_hotp(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData){
+int DAPLUGCALL Daplug_hotp(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData){
 
     char tmp[MAX_REAL_DATA_SIZE*2+1]="";
 
     if(!(options & OTP_6_DIGIT) && !(options & OTP_7_DIGIT) && !(options & OTP_8_DIGIT)){
         fprintf(stderr,"\nhotp(): Invalid option for Daplug_hotp !\n");
-        return;
+        return 0;
     }
 
     if(strlen(inData)/2 != 2 && strlen(inData)/2 != 8){
         fprintf(stderr,"\nhotp(): Invalid data for Daplug_hotp !\n");
-        return;
+        return 0;
     }
 
-    hmac_sha1(dpd, keyVersion, options, div1, div2, inData, tmp);
+    if(!hmac_sha1(dpd, keyVersion, options, div1, div2, inData, tmp)){
+        fprintf(stderr,"\nhotp(): Cannot generate HOTP !\n");
+        return 0;
+    }
 
-    hexToAscii(tmp,outData);
+    if(!hexToAscii(tmp,outData)){
+        fprintf(stderr,"\nhotp(): Cannot generate HOTP !\n");
+        return 0;
+    }
+
+    return 1;
 
 }
 
-void DAPLUGCALL Daplug_totp(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData){
+int DAPLUGCALL Daplug_totp(DaplugDongle *dpd, int keyVersion, int options, char *div1, char *div2, char* inData, char* outData){
 
     char tmp[MAX_REAL_DATA_SIZE*2+1]="";
 
     if(!(options & OTP_6_DIGIT) && !(options & OTP_7_DIGIT) && !(options & OTP_8_DIGIT)){
         fprintf(stderr,"\ntotp(): Invalid option for Daplug_totp !\n");
-        return;
+        return 0;
     }
 
     if(strlen(inData)/2 != 0 && strlen(inData)/2 != 8){
         fprintf(stderr,"\ntotp(): Invalid data for Daplug_totp !\n");
-        return;
+        return 0;
     }
 
-    hmac_sha1(dpd, keyVersion, options, div1, div2, inData, tmp);
+    if(!hmac_sha1(dpd, keyVersion, options, div1, div2, inData, tmp)){
+        fprintf(stderr,"\ntotp(): Cannot generate TOTP !\n");
+        return 0;
+    }
 
-    hexToAscii(tmp,outData);
+    if(!hexToAscii(tmp,outData)){
+        fprintf(stderr,"\ntotp(): Cannot generate TOTP !\n");
+        return 0;
+    }
+
+    return 1;
 
 }
 
-void DAPLUGCALL Daplug_setTimeOTP(DaplugDongle *dpd, int keyVersion, int keyId, char *timeSrcKey, int step, int t){
+int DAPLUGCALL Daplug_setTimeOTP(DaplugDongle *dpd, int keyVersion, int keyId, char *timeSrcKey, int step, int t){
 
     char set_time_ref_apdu_str[APDU_CMD_MAXLEN*2+1]="D0B2";
     char kv_s[1*2+1]="", kid_s[1*2+1]="";
@@ -1149,33 +1675,46 @@ void DAPLUGCALL Daplug_setTimeOTP(DaplugDongle *dpd, int keyVersion, int keyId, 
 
     //Set to apdu cde
     Apdu set_time_ref_apdu;
-    setApduCmd(set_time_ref_apdu_str,&set_time_ref_apdu);
+    if(!setApduCmd(set_time_ref_apdu_str,&set_time_ref_apdu)){
+        fprintf(stderr,"\nsetTimeOTP(): Cannot set time reference for dongle !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&set_time_ref_apdu);
+    if(!exchangeApdu(dpd,&set_time_ref_apdu)){
+        fprintf(stderr,"\nsetTimeOTP(): Cannot set time reference for dongle !\n");
+        return 0;
+    }
 
     if(strcmp(set_time_ref_apdu.sw_str,"9000")){
         fprintf(stderr,"\nsetTimeOTP(): Cannot set time reference for dongle !\n");
-        return;
+        return 0;
     }else{
         fprintf(stderr,"\nsetTimeOTP(): Dongle_info time reference set.\n");
+        return 1;
     }
 }
 
-void DAPLUGCALL Daplug_getTimeOTP(DaplugDongle *dpd, char* time){
+int DAPLUGCALL Daplug_getTimeOTP(DaplugDongle *dpd, char* time){
 
     char get_time_apdu_str[5*2+1]="D0B0000000";
 
     //Set to apdu cde
     Apdu get_time_apdu;
-    setApduCmd(get_time_apdu_str,&get_time_apdu);
+    if(!setApduCmd(get_time_apdu_str,&get_time_apdu)){
+        fprintf(stderr,"\nget_time(): Cannot get dongle time !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&get_time_apdu);
+    if(!exchangeApdu(dpd,&get_time_apdu)){
+        fprintf(stderr,"\nget_time(): Cannot get dongle time !\n");
+        return 0;
+    }
 
     if(strcmp(get_time_apdu.sw_str,"9000")){
         fprintf(stderr,"\nget_time(): Cannot get dongle time !\n");
-        return;
+        return 0;
     }
 
     if(strcmp(str_sub(get_time_apdu.r_str,0,1),"00")){
@@ -1183,35 +1722,45 @@ void DAPLUGCALL Daplug_getTimeOTP(DaplugDongle *dpd, char* time){
         strcpy(time,tmp = str_sub(get_time_apdu.r_str,2,9));
         free(tmp);
         tmp = NULL;
+        return 1;
     }else{
         char * tmp = NULL;
         fprintf(stderr,"\nget_time(): Dongle_info time reference not set yet !\n");
         free(tmp);
         tmp = NULL;
+        return 0;
     }
 }
 
-void DAPLUGCALL Daplug_useAsKeyboard(DaplugDongle *dpd){
+int DAPLUGCALL Daplug_useAsKeyboard(DaplugDongle *dpd){
 
     char apdu_str[5*2+1]="D032000000";
 
     //Set to apdu cde
     Apdu apdu;
-    setApduCmd(apdu_str,&apdu);
+    if(!setApduCmd(apdu_str,&apdu)){
+        fprintf(stderr,"\nuseAsKeyboard(): Cannot set keyboard input file !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&apdu);
+    if(!exchangeApdu(dpd,&apdu)){
+        fprintf(stderr,"\nuseAsKeyboard(): Cannot set keyboard input file !\n");
+        return 0;
+    }
 
     if(strcmp(apdu.sw_str,"9000")){
         fprintf(stderr,"\nuseAsKeyboard(): Cannot set keyboard input file !\n");
-        return;
+        return 0;
     }else{
         fprintf(stderr,"\nuseAsKeyboard(): Keyboard input file set.\n");
-        return;
+        return 1;
     }
+
+    return 1;
 }
 
-void DAPLUGCALL Daplug_setKeyboardAtBoot(DaplugDongle *dpd, int activated){
+int DAPLUGCALL Daplug_setKeyboardAtBoot(DaplugDongle *dpd, int activated){
 
     char apdu_str[5*2+1]="D032";
 
@@ -1223,10 +1772,24 @@ void DAPLUGCALL Daplug_setKeyboardAtBoot(DaplugDongle *dpd, int activated){
 
     //Set to apdu cde
     Apdu apdu;
-    setApduCmd(apdu_str,&apdu);
+    if(!setApduCmd(apdu_str,&apdu)){
+        if(activated){
+            fprintf(stderr,"\nDaplug_setKeyboardAtBoot(): Cannot activate automatic keyboard emulation !\n");
+        }else{
+            fprintf(stderr,"\nDaplug_setKeyboardAtBoot(): Cannot deactivate automatic keyboard emulation !\n");
+        }
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&apdu);
+    if(!exchangeApdu(dpd,&apdu)){
+        if(activated){
+            fprintf(stderr,"\nDaplug_setKeyboardAtBoot(): Cannot activate automatic keyboard emulation !\n");
+        }else{
+            fprintf(stderr,"\nDaplug_setKeyboardAtBoot(): Cannot deactivate automatic keyboard emulation !\n");
+        }
+        return 0;
+    }
 
     if(strcmp(apdu.sw_str,"9000")){
         if(activated){
@@ -1234,116 +1797,179 @@ void DAPLUGCALL Daplug_setKeyboardAtBoot(DaplugDongle *dpd, int activated){
         }else{
             fprintf(stderr,"\nDaplug_setKeyboardAtBoot(): Cannot deactivate automatic keyboard emulation !\n");
         }
-        return;
+        return 0;
     }else{
         if(activated){
             fprintf(stderr,"\nDaplug_setKeyboardAtBoot(): Automatic keyboard emulation activated.\n");
         }else{
             fprintf(stderr,"\nDaplug_setKeyboardAtBoot(): Automatic keyboard emulation deactivated.\n");
         }
-        return;
+        return 1;
     }
+
 }
 
-void DAPLUGCALL Daplug_triggerKeyboard(DaplugDongle *dpd){
+int DAPLUGCALL Daplug_triggerKeyboard(DaplugDongle *dpd){
 
     char apdu_str[5*2+1]="D030010000";
 
     //Set to apdu cde
     Apdu apdu;
-    setApduCmd(apdu_str,&apdu);
+    if(!setApduCmd(apdu_str,&apdu)){
+        fprintf(stderr,"\nDaplug_triggerKeyboard(): Cannot trigger keyboard input !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&apdu);
+    if(!exchangeApdu(dpd,&apdu)){
+        fprintf(stderr,"\nDaplug_triggerKeyboard(): Cannot trigger keyboard input !\n");
+        return 0;
+    }
 
     if(strcmp(apdu.sw_str,"9000")){
         fprintf(stderr,"\nDaplug_triggerKeyboard(): Cannot trigger keyboard input !\n");
-        return;
+        return 0;
     }else{
         fprintf(stderr,"\nDaplug_triggerKeyboard(): Keyboard triggered.\n");
-        return;
+        return 1;
     }
 }
 
-void DAPLUGCALL Daplug_hidToWinusb(DaplugDongle *dpd){
+int DAPLUGCALL Daplug_hidToWinusb(DaplugDongle *dpd){
 
     char apdu_str[5*2+1]="d052080200";
 
     //Set to apdu cde
     Apdu apdu;
-    setApduCmd(apdu_str,&apdu);
+    if(!setApduCmd(apdu_str,&apdu)){
+        fprintf(stderr,"\nDaplug_hidToWinusb(): Cannot switch to winusb mode !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&apdu);
+    if(!exchangeApdu(dpd,&apdu)){
+        fprintf(stderr,"\nDaplug_hidToWinusb(): Cannot switch to winusb mode !\n");
+        return 0;
+    }
 
     if(strcmp(apdu.sw_str,"9000")){
         fprintf(stderr,"\nDaplug_hidToWinusb(): Cannot switch to winusb mode !\n");
-        return;
+        return 0;
     }else{
         fprintf(stdout,"\nDaplug_hidToWinusb(): Winusb mode activated.\n");
-        return;
+        return 1;
     }
 }
 
-void DAPLUGCALL Daplug_winusbToHid(DaplugDongle *dpd){
+int DAPLUGCALL Daplug_winusbToHid(DaplugDongle *dpd){
 
     char apdu_str[5*2+1]="d052080100";
 
     //Set to apdu cde
     Apdu apdu;
-    setApduCmd(apdu_str,&apdu);
+    if(!setApduCmd(apdu_str,&apdu)){
+        fprintf(stderr,"\nDaplug_winusbToHid(): Cannot switch to hid mode !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&apdu);
+    if(!exchangeApdu(dpd,&apdu)){
+        fprintf(stderr,"\nDaplug_winusbToHid(): Cannot switch to hid mode !\n");
+        return 0;
+    }
 
     if(strcmp(apdu.sw_str,"9000")){
         fprintf(stderr,"\nDaplug_winusbToHid(): Cannot switch to hid mode !\n");
-        return;
+        return 0;
     }else{
         fprintf(stdout,"\nDaplug_winusbToHid(): Hid mode activated.\n");
-        return;
+        return 1;
     }
 
 }
 
-void DAPLUGCALL Daplug_reset(DaplugDongle *dpd){
+int DAPLUGCALL Daplug_reset(DaplugDongle *dpd){
 
     char apdu_str[5*2+1]="d052010000";
 
     //Set to apdu cde
     Apdu apdu;
-    setApduCmd(apdu_str,&apdu);
+    if(!setApduCmd(apdu_str,&apdu)){
+        fprintf(stderr,"\nDaplug_reset(): Cannot reset dongle !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&apdu);
+    if(!exchangeApdu(dpd,&apdu)){
+        fprintf(stderr,"\nDaplug_reset(): Cannot reset dongle !\n");
+        return 0;
+    }
 
     if(strcmp(apdu.sw_str,"9000")){
         fprintf(stderr,"\nDaplug_reset(): Cannot reset dongle !\n");
-        return;
+        return 0;
     }else{
         fprintf(stdout,"\nDaplug_reset(): Dongle successfully reset.\n");
-        return;
+        return 1;
     }
 
 }
 
-void DAPLUGCALL Daplug_halt(DaplugDongle *dpd){
+int DAPLUGCALL Daplug_halt(DaplugDongle *dpd){
 
     char apdu_str[5*2+1]="d052020000";
 
     //Set to apdu cde
     Apdu apdu;
-    setApduCmd(apdu_str,&apdu);
+    if(!setApduCmd(apdu_str,&apdu)){
+        fprintf(stderr,"\nDaplug_halt(): Cannot halt dongle !\n");
+        return 0;
+    }
 
     //exchange it
-    exchangeApdu(dpd,&apdu);
+    if(!exchangeApdu(dpd,&apdu)){
+        fprintf(stderr,"\nDaplug_halt(): Cannot halt dongle !\n");
+        return 0;
+    }
 
     if(strcmp(apdu.sw_str,"9000")){
         fprintf(stderr,"\nDaplug_halt(): Cannot halt dongle !\n");
-        return;
+        return 0;
     }else{
         fprintf(stdout,"\nDaplug_halt(): Dongle successfully halted.\n");
-        return;
+        return 1;
     }
 
+}
+
+void DAPLUGCALL Daplug_close(DaplugDongle *dpd){
+
+    Daplug_deAuthenticate(dpd);
+
+    //if Hid device
+    if((dpd->di)->type == HID_DEVICE) hid_close((dpd->di)->handle);
+
+    //free the DaplugDongle allocated in Daplug_getDongleById()
+    free(dpd);
+}
+
+void DAPLUGCALL Daplug_exit(char ***donglesList){
+
+    //free winusb devices list
+    int i;
+    for(i=0;i<dongles_nb;i++){
+        if(dongles[i].type == WINUSB_DEVICE){
+            freeWinusbDevice(dongles[i].handle);
+        }
+    }
+
+    //free dongles list (allocated in the Daplug_getDonglesList())
+    for(i=0;i<dongles_nb;i++){
+        free((*donglesList)[i]);
+    }
+    free(*donglesList);
+
+    //Deinitialize libusb
+    winusbExit();
+    hid_exit();
 }

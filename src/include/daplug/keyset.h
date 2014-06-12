@@ -55,9 +55,9 @@ typedef enum {
  */
 typedef struct{
 
-    Byte version; /**< Keyset version */
-    keyset_usage usage; /**< Keyset role */
-    Byte access[2]; /**< Keyset access conditions */
+    int version; /**< Keyset version */
+    int usage; /**< Keyset role */
+    int access[2]; /**< Keyset access conditions */
     Byte key[3][GP_KEY_SIZE]; /**< Array of Keys values */
 
 } Keyset;
@@ -74,7 +74,7 @@ typedef struct{
  * Creates a new Keyset instance with the provided keys values.
  * If the MAC or DEK key is not specified, the same ENC key value is used instead.
 */
-void DAPLUGAPI DAPLUGCALL keyset_createKeys(Keyset *keys, int version,const char* encKey,const char* macKey,const char* dekKey);
+int DAPLUGAPI DAPLUGCALL keyset_createKeys(Keyset *keys, int version,const char* encKey,const char* macKey,const char* dekKey);
 
 /**
  * \ingroup Daplug
@@ -84,7 +84,7 @@ void DAPLUGAPI DAPLUGCALL keyset_createKeys(Keyset *keys, int version,const char
  *
  * Sets keyset version
 */
-void DAPLUGAPI DAPLUGCALL keyset_setVersion(Keyset* keys, int version);
+int DAPLUGAPI DAPLUGCALL keyset_setVersion(Keyset* keys, int version);
 
 /**
  * \ingroup Daplug
@@ -105,7 +105,7 @@ void DAPLUGAPI DAPLUGCALL keyset_getVersion(Keyset, int *version);
  *
  * Sets a new key value for the keyset
 */
-void DAPLUGAPI DAPLUGCALL keyset_setKey(Keyset *keys,int id,char* key_value);
+int DAPLUGAPI DAPLUGCALL keyset_setKey(Keyset *keys,int id,char* key_value);
 
 /**
  * \ingroup Daplug
@@ -126,7 +126,7 @@ void DAPLUGAPI DAPLUGCALL keyset_getKey(Keyset keys,int id, char* key_value);
  *
  * Return the keyset role
 */
-void DAPLUGAPI DAPLUGCALL keyset_getKeyUsage(Keyset keys, keyset_usage *ku);
+void DAPLUGAPI DAPLUGCALL keyset_getKeyUsage(Keyset keys, int *ku);
 /**
  * \ingroup Daplug
  * \fn void keyset_setKeyAccess(Keyset *keys,Byte access[2])
@@ -135,7 +135,7 @@ void DAPLUGAPI DAPLUGCALL keyset_getKeyUsage(Keyset keys, keyset_usage *ku);
  *
  * Sets the keyset access conditions
 */
-void DAPLUGAPI DAPLUGCALL keyset_setKeyAccess(Keyset *keys,Byte access[2]);
+int DAPLUGAPI DAPLUGCALL keyset_setKeyAccess(Keyset *keys, int access[]);
 
 /**
  * \ingroup Daplug
@@ -145,6 +145,6 @@ void DAPLUGAPI DAPLUGCALL keyset_setKeyAccess(Keyset *keys,Byte access[2]);
  *
  * Returns the keyset access conditions
 */
-void DAPLUGAPI DAPLUGCALL keyset_getKeyAccess(Keyset keys,Byte *access);
+void DAPLUGAPI DAPLUGCALL keyset_getKeyAccess(Keyset keys, int access[]);
 
 #endif // KEYSET_H_INCLUDED

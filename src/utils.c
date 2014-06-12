@@ -131,7 +131,7 @@ void asciiToHex(const char *s,char* s_hex){
     }
 }
 
-void hexToAscii(const char *s_hex,char* s){
+int hexToAscii(const char *s_hex,char* s){
 
     int i, len = strlen(s_hex)/2;
     char tmp[2]="";
@@ -139,7 +139,7 @@ void hexToAscii(const char *s_hex,char* s){
 
     if(!isHexInput(s_hex)){
         fprintf(stderr,"\nhexToAscii(): Invalid data !\n");
-        return;
+        return 0;
     }
 
     strcpy(s,"");
@@ -149,5 +149,7 @@ void hexToAscii(const char *s_hex,char* s){
        sprintf(tmp,"%c",b_s_hex[i]);
        strcat(s,tmp);
     }
+
+    return 1;
 
 }

@@ -6,7 +6,7 @@
  * \date 02/12/2013
  * \warning Functions are not documented
  *
- * Differents security functions used in a secure channel session.
+ * Differents security functions used in a soft secure channel session.
  *
  */
 
@@ -123,7 +123,7 @@ int checkCardCryptogram(char *returnedCardCryptogram, char *computedCardCryptogr
 void computeRetailMac(const char *data, char *key, char *previousMac, char *retailMac, int cmac)
 {
     int i,l=0;
-    //max = max apdu len+1+max rep data len+sw len+any retail pad len+any prevous mac len
+    //max = max apdu len+1+max rep data len+sw len+any pad len+any previous mac len
     char temp[(5+255+1+255+2+8+8)*2+1]= "";//
     unsigned char work1[5+255+1+255+2+8],work2[8],work3[8],work4[5+255+1+255+2+8], out[8], icv[8],
                   key1[8], key2[8];

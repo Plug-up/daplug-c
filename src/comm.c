@@ -3,7 +3,8 @@
  * \brief
  * \author S.BENAMAR s.benamar@plug-up.com
  * \version 1.0
- * \date 02/12/2013
+ * \date 09/06/2014
+ * \warning Functions are not documented
  *
  * Send/receive APDU command/response to/from dongle. Perform wrap/unwrap operations, when exchanging APDUs
  * over a secure channel, according to a given security level.
@@ -13,8 +14,9 @@
 
 #include <daplug/comm.h>
 #include <daplug/winusb.h>
+#include <daplug/sam.h>
 
-static void wrapApduCmd(DaplugDongle* dpd, Apdu *a){
+static int wrapApduCmd(DaplugDongle* dpd, Apdu *a){
 
     char header[APDU_H_LEN*2+1]="", f_header[APDU_H_LEN*2+1]="",//f = final
          data[APDU_D_MAXLEN*2+1]="", f_data[APDU_D_MAXLEN*2+1]="",
@@ -45,7 +47,14 @@ static void wrapApduCmd(DaplugDongle* dpd, Apdu *a){
     if((dpd->securityLevel & C_DEC)&&(strncmp("8082",header,4))){
 
         //encrypt apdu data
-        dataEncryption(data, dpd->s_enc_key,f_data, DES_ENCRYPT);
+        if(dpd->sessionType == HARD_SC){
+            if(!SAM_dataEncryption(dpd->SAMDpd, dpd->SAMCtxKeyVersion, dpd->SAMCtxKeyId,
+                               dpd->s_enc_key, data, SAM_ENCRYPT, f_data)){
+                return 0;
+            }
+        }else{
+            dataEncryption(data, dpd->s_enc_key,f_data, DES_ENCRYPT);
+        }
         pad_size = (strlen(f_data)-strlen(data))/2;
 
     }
@@ -66,7 +75,13 @@ static void wrapApduCmd(DaplugDongle* dpd, Apdu *a){
         strcat(m_apdu,data);
 
         //compute c-mac
-        computeRetailMac(m_apdu, dpd->c_mac_key,dpd->c_mac,c_mac,1);
+        if(dpd->sessionType == HARD_SC){
+            if(!SAM_computeRetailMac(dpd->SAMDpd, dpd->SAMCtxKeyVersion, dpd->SAMCtxKeyId, dpd->c_mac_key, m_apdu, dpd->c_mac, SAM_CMAC, c_mac)){
+                return 0;
+            }
+        }else{
+            computeRetailMac(m_apdu, dpd->c_mac_key,dpd->c_mac,c_mac,1);
+        }
         //update dpd c_mac
         strcpy(dpd->c_mac,c_mac);
 
@@ -85,6 +100,8 @@ static void wrapApduCmd(DaplugDongle* dpd, Apdu *a){
     a->cmd_len = strlen(f_apdu)/2;
     strcpy(a->c_str,f_apdu);
     strToBytes(a->c_str,a->cmd);
+
+    return 1;
 
 }
 
@@ -123,7 +140,16 @@ static int unwrapApduRep(DaplugDongle* dpd, Apdu *a){
         strcat(temp_data,data0); //data
         strcat(temp_data,a->sw_str); //sw
 
-        computeRetailMac(temp_data,dpd->r_mac_key,dpd->r_mac,mac,0);
+        //Compute RMAC
+        if(dpd->sessionType == HARD_SC){
+            if(!SAM_computeRetailMac(dpd->SAMDpd, dpd->SAMCtxKeyVersion, dpd->SAMCtxKeyId,
+                                 dpd->r_mac_key, temp_data, dpd->r_mac, SAM_RMAC, mac)){
+                Daplug_deAuthenticate(dpd);
+                return 0;
+            }
+        }else{
+            computeRetailMac(temp_data,dpd->r_mac_key,dpd->r_mac,mac,0);
+        }
 
         if(strcmp(returned_mac,mac)){
             fprintf(stderr,"\nunwrapApduRep(): Response integrity failed !\n");
@@ -142,28 +168,37 @@ static int unwrapApduRep(DaplugDongle* dpd, Apdu *a){
 
         if(strlen(f_data)>0){ //In case of apdu reponse with data only
 
+            //Decrypt data
+            if(dpd->sessionType == HARD_SC){
+                if(!SAM_dataEncryption(dpd->SAMDpd, dpd->SAMCtxKeyVersion, dpd->SAMCtxKeyId,
+                                   dpd->r_enc_key, f_data, SAM_DECRYPT, clear_data)){
+                    Daplug_deAuthenticate(dpd);
+                    return 0;
+                }
+            }else{
+                dataEncryption(f_data, dpd->r_enc_key, padded_clear_data, DES_DECRYPT);
 
-            dataEncryption(f_data, dpd->r_enc_key, padded_clear_data, DES_DECRYPT);
+                //exclude padding to obtain clear data
+                Byte padded_clear_data_b[APDU_D_MAXLEN];
+                strToBytes(padded_clear_data,padded_clear_data_b);
+                int end = strlen(padded_clear_data)/2 - 1,
+                    i = end;
+                while(padded_clear_data_b[i]==0x00 && i>0){
+                    i--;
+                }
+                if(padded_clear_data_b[i]==0x80){
+                    char* tmp = NULL;
+                    strcpy(clear_data, tmp = str_sub(padded_clear_data,0,i*2-1));
+                    free(tmp);
+                    tmp = NULL;
+                }
+                else{
+                    fprintf(stderr,"\nunwrapApduRep(): Response decryption failed !\n");
+                    //Daplug_deAuthenticate
+                    Daplug_deAuthenticate(dpd);
+                    return 0;
+                }
 
-            //exclude padding to obtain clear data
-            Byte padded_clear_data_b[APDU_D_MAXLEN];
-            strToBytes(padded_clear_data,padded_clear_data_b);
-            int end = strlen(padded_clear_data)/2 - 1,
-                i = end;
-            while(padded_clear_data_b[i]==0x00 && i>0){
-                i--;
-            }
-            if(padded_clear_data_b[i]==0x80){
-                char* tmp = NULL;
-                strcpy(clear_data, tmp = str_sub(padded_clear_data,0,i*2-1));
-                free(tmp);
-                tmp = NULL;
-            }
-            else{
-                fprintf(stderr,"\nunwrapApduRep(): Response decryption failed !\n");
-                //Daplug_deAuthenticate
-                Daplug_deAuthenticate(dpd);
-                return 0;
             }
 
         }
@@ -184,27 +219,37 @@ static int unwrapApduRep(DaplugDongle* dpd, Apdu *a){
 
         if(strlen(data0)>0){ //In case of apdu reponse with data only
 
-            dataEncryption(data0, dpd->r_enc_key, padded_clear_data, DES_DECRYPT);
+            //Decrypt data
+            if(dpd->sessionType == HARD_SC){
+                if(!SAM_dataEncryption(dpd->SAMDpd, dpd->SAMCtxKeyVersion, dpd->SAMCtxKeyId,
+                                   dpd->r_enc_key, data0, SAM_DECRYPT, clear_data)){
+                    Daplug_deAuthenticate(dpd);
+                    return 0;
+                }
+            }else{
+                dataEncryption(data0, dpd->r_enc_key, padded_clear_data, DES_DECRYPT);
 
-            //exclude padding to obtain clear data
-            Byte padded_clear_data_b[APDU_D_MAXLEN];
-            strToBytes(padded_clear_data,padded_clear_data_b);
-            int end = strlen(padded_clear_data)/2 - 1,
-                i = end;
-            while(padded_clear_data_b[i]==0x00 && i>0){
-                i--;
-            }
-            if(padded_clear_data_b[i]==0x80){
-                char *tmp = NULL;
-                strcpy(clear_data, tmp = str_sub(padded_clear_data,0,i*2-1));
-                free(tmp);
-                tmp = NULL;
-            }
-            else{
-                fprintf(stderr,"\nunwrapApduRep(): Response decryption failed !\n");
-                //Daplug_deAuthenticate
-                Daplug_deAuthenticate(dpd);
-                return 0;
+                //exclude padding to obtain clear data
+                Byte padded_clear_data_b[APDU_D_MAXLEN];
+                strToBytes(padded_clear_data,padded_clear_data_b);
+                int end = strlen(padded_clear_data)/2 - 1,
+                    i = end;
+                while(padded_clear_data_b[i]==0x00 && i>0){
+                    i--;
+                }
+                if(padded_clear_data_b[i]==0x80){
+                    char *tmp = NULL;
+                    strcpy(clear_data, tmp = str_sub(padded_clear_data,0,i*2-1));
+                    free(tmp);
+                    tmp = NULL;
+                }
+                else{
+                    fprintf(stderr,"\nunwrapApduRep(): Response decryption failed !\n");
+                    //Daplug_deAuthenticate
+                    Daplug_deAuthenticate(dpd);
+                    return 0;
+                }
+
             }
 
         }
@@ -219,7 +264,16 @@ static int unwrapApduRep(DaplugDongle* dpd, Apdu *a){
         strcat(temp_data,clear_data); //clear data
         strcat(temp_data,a->sw_str); //sw
 
-        computeRetailMac(temp_data,dpd->r_mac_key,dpd->r_mac,mac,0);
+        //Compute RMAC
+        if(dpd->sessionType == HARD_SC){
+            if(!SAM_computeRetailMac(dpd->SAMDpd, dpd->SAMCtxKeyVersion, dpd->SAMCtxKeyId,
+                                 dpd->r_mac_key, temp_data, dpd->r_mac, SAM_RMAC, mac)){
+                Daplug_deAuthenticate(dpd);
+                return 0;
+            }
+        }else{
+            computeRetailMac(temp_data,dpd->r_mac_key,dpd->r_mac,mac,0);
+        }
 
         if(strcmp(returned_mac,mac)){
             fprintf(stderr,"\nunwrapApduRep(): Response integrity failed !\n");
@@ -244,20 +298,23 @@ static int unwrapApduRep(DaplugDongle* dpd, Apdu *a){
 
 int exchangeApdu(DaplugDongle *dpd, Apdu *a){
 
-    if(!dpd->di.handle) {
+    if(!dpd->di->handle) {
         fprintf(stderr,"\nexchangeApdu(): Dongle_info error !\n");
         return 0;
     }
 
     //wrap apdu according to the dpd state
-    wrapApduCmd(dpd,a);
+    if(!wrapApduCmd(dpd,a)){
+        fprintf(stderr,"\nexchangeApdu(): An error occured when wrapping Apdu !\n");
+        return 0;
+    }
 
     //print exchanged apdus into the log file
     if(flog_apdu){
         fprintf(flog_apdu,"=> %s\n",a->c_str);
     }
 
-    if(dpd->di.type == HID_DEVICE){ //hid Dongle_info
+    if(dpd->di->type == HID_DEVICE){ //hid Dongle_info
 
         int i=0,j=0,k=0,useful_data=0,reads_nb=0,nbr=0,nbw=0,pad=0;
 
@@ -278,7 +335,7 @@ int exchangeApdu(DaplugDongle *dpd, Apdu *a){
             }
 
             //write block to plug-up
-            nbw = hid_write((hid_device*)dpd->di.handle,w_block,HID_BLOCK_SIZE+1);
+            nbw = hid_write((hid_device*)dpd->di->handle,w_block,HID_BLOCK_SIZE+1);
             if (nbw < 0) {
                 fprintf(stderr,"\nexchangeApdu(): Write apdu failure !\n");
                 return 0;
@@ -300,7 +357,7 @@ int exchangeApdu(DaplugDongle *dpd, Apdu *a){
         }
 
         //Write last block
-        nbw = hid_write((hid_device*)dpd->di.handle,w_block,HID_BLOCK_SIZE+1);
+        nbw = hid_write((hid_device*)dpd->di->handle,w_block,HID_BLOCK_SIZE+1);
         if (nbw < 0) {
             fprintf(stderr,"exchangeApdu(): Write apdu failure !\n");
             return 0;
@@ -308,7 +365,7 @@ int exchangeApdu(DaplugDongle *dpd, Apdu *a){
 
 
         //read the apdu response
-        nbr = hid_read((hid_device*)dpd->di.handle,r_block,HID_BLOCK_SIZE); //read first block
+        nbr = hid_read((hid_device*)dpd->di->handle,r_block,HID_BLOCK_SIZE); //read first block
         if (nbr < 0) {
             fprintf(stderr,"\nexchangeApdu(): Read failure !\n");
             return 0;
@@ -331,7 +388,7 @@ int exchangeApdu(DaplugDongle *dpd, Apdu *a){
 
             //reading block by block
             for(k=0;k<reads_nb-1;k++){
-                nbr = hid_read((hid_device*)dpd->di.handle,r_block,HID_BLOCK_SIZE);
+                nbr = hid_read((hid_device*)dpd->di->handle,r_block,HID_BLOCK_SIZE);
                 if (nbr < 0) {
                     fprintf(stderr,"\nexchangeApdu(): Read failure !\n");
                     return 0;
@@ -357,12 +414,18 @@ int exchangeApdu(DaplugDongle *dpd, Apdu *a){
 
     }
 
-    if(dpd->di.type == WINUSB_DEVICE){ //winusb Dongle_info
+    if(dpd->di->type == WINUSB_DEVICE){ //winusb Dongle_info
 
         Byte winusb_read_data0[APDU_D_MAXLEN+4];//data + sw + 2 first bytes
 
-        writeToWinusbDevice(dpd->di.handle,a->cmd);
-        ReadFromWinusbDevice(dpd->di.handle,winusb_read_data0);
+        if(!writeToWinusbDevice(dpd->di->handle,a->cmd)){
+            fprintf(stderr,"\nexchangeApdu(): Write failure !\n");
+            return 0;
+        }
+        if(!ReadFromWinusbDevice(dpd->di->handle,winusb_read_data0)){
+            fprintf(stderr,"\nexchangeApdu(): Read failure !\n");
+            return 0;
+        }
         a->rep_data_len = winusb_read_data0[1];
         if(winusb_read_data0[0] == 0x61){
             int i=0;
@@ -386,7 +449,10 @@ int exchangeApdu(DaplugDongle *dpd, Apdu *a){
         fprintf(flog_apdu,"<= %s %s\n",a->r_str,a->sw_str);
     }
 
-    unwrapApduRep(dpd,a);
+    if(!unwrapApduRep(dpd,a)){
+        fprintf(stderr,"\nexchangeApdu(): An error occured when unwrapping Apdu response !\n");
+        return 0;
+    }
 
     return 1;
 
