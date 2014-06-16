@@ -29,7 +29,7 @@ Last update 09 06 2014
 
 ## Notes ##
 
-- Be careful ! Use the right hidapi (hidpai.c & hidapi.h) according to your OS !!!
+- Be careful ! Use the right hidpai.c according to your OS !!!
 
 - For debug use debug compilation ; for deploying use release compilation.
 
