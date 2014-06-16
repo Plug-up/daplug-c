@@ -1,8 +1,6 @@
-The Daplug API source files are in the "src" directory.
+Daplug API source files are in the "src" directory.
 
-The "test" directory contain a "main.c" file. So you can use it to understand how the C Daplug API works and what we can do with it. 
-
-Last update 09 06 2014
+The "main.c" file in the "test" directory contains test functions for understanding how the C Daplug API works. 
 
 ## How to compile ##
 
@@ -25,11 +23,8 @@ Last update 09 06 2014
 
 - Add proper udev rule.
 
-- Add -fPIC to compiler options. (when creating a lib on 64)
+- Add -fPIC to compiler options. (when creating a lib)
 
 ## Notes ##
 
-- Be careful ! Use the right hidpai.c according to your OS !!!
-
-- For debug use debug compilation ; for deploying use release compilation.
-
+- Be careful ! Use the right "hidpai" source file according to your OS (rename it to "hidapi.c") !!!
