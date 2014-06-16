@@ -3,13 +3,36 @@
  * \brief
  * \author S.BENAMAR s.benamar@plug-up.com
  * \version 1.0
- * \date 02/12/2013
+ * \date 09/06/2014
  *
  * Helps to create the keyboard file content to be uploaded to a dongle.
  *
  */
 
 #include "daplug/keyboard.h"
+
+static int DAPLUGCALL addAsciiText(Keyboard *k, char *text){
+
+    int text_len = strlen(text);
+
+    char text_hex[text_len*2+1];
+
+    strcpy(text_hex,"");
+    asciiToHex(text,text_hex);
+
+    int added_len = strlen(text_hex);
+    added_len = added_len/2;
+
+    if(k->currentContentSize+added_len <= MAX_KB_CONTENT_SIZE){
+        strcat(k->content,text_hex);
+        k->currentContentSize = k->currentContentSize+added_len;
+    }else{
+        fprintf(stderr,"\nkeyboard_addOSProbe(): Keyboard maximum content size exceeded !\n");
+        return 0;
+    }
+
+    return 1;
+}
 
 void DAPLUGCALL keyboard_init(Keyboard *k){
     strcpy(k->content,"");
@@ -21,7 +44,7 @@ void DAPLUGCALL keyboard_getContent(Keyboard *k, char *content){
     strcpy(content, k->content);
 }
 
-void DAPLUGCALL keyboard_addOSProbe(Keyboard *k, int nb, int delay, int code){
+int DAPLUGCALL keyboard_addOSProbe(Keyboard *k, int nb, int delay, int code){
 
     char nb_s[1*2+1]="",
          delay_s[2*2+1]="",
@@ -49,12 +72,14 @@ void DAPLUGCALL keyboard_addOSProbe(Keyboard *k, int nb, int delay, int code){
     }
     else{
         fprintf(stderr,"\nkeyboard_addOSProbe(): Keyboard maximum content size exceeded !\n");
-        return;
+        return 0;
     }
+
+    return 1;
 
 }
 
-void DAPLUGCALL keyboard_addOSProbeWinR(Keyboard *k, int nb, int delay, int code){
+int DAPLUGCALL keyboard_addOSProbeWinR(Keyboard *k, int nb, int delay, int code){
 
     char nb_s[1*2+1]="",
          delay_s[2*2+1]="",
@@ -82,11 +107,13 @@ void DAPLUGCALL keyboard_addOSProbeWinR(Keyboard *k, int nb, int delay, int code
     }
     else{
         fprintf(stderr,"\nkeyboard_addOSProbeWinR(): Keyboard maximum content size exceeded !\n");
-        return;
+        return 0;
     }
+
+    return 1;
 }
 
-void DAPLUGCALL keyboard_addIfPC(Keyboard *k){
+int DAPLUGCALL keyboard_addIfPC(Keyboard *k){
 
     int added_len = strlen("0E00");
     added_len = added_len/2;
@@ -96,11 +123,13 @@ void DAPLUGCALL keyboard_addIfPC(Keyboard *k){
         k->currentContentSize = k->currentContentSize+added_len;
     }else{
         fprintf(stderr,"\nkeyboard_addOSProbe(): Keyboard maximum content size exceeded !\n");
-        return;
+        return 0;
     }
+
+    return 1;
 }
 
-void DAPLUGCALL keyboard_addIfMac(Keyboard *k){
+int DAPLUGCALL keyboard_addIfMac(Keyboard *k){
 
     int added_len = strlen("0F00");
     added_len = added_len/2;
@@ -111,32 +140,14 @@ void DAPLUGCALL keyboard_addIfMac(Keyboard *k){
         k->currentContentSize = k->currentContentSize+added_len;
     }else{
         fprintf(stderr,"\nkeyboard_addOSProbe(): Keyboard maximum content size exceeded !\n");
-        return;
+        return 0;
     }
+
+    return 1;
+
 }
 
-static void DAPLUGCALL addAsciiText(Keyboard *k, char *text){
-
-    int text_len = strlen(text);
-
-    char text_hex[text_len*2+1];
-
-    strcpy(text_hex,"");
-    asciiToHex(text,text_hex);
-
-    int added_len = strlen(text_hex);
-    added_len = added_len/2;
-
-    if(k->currentContentSize+added_len <= MAX_KB_CONTENT_SIZE){
-        strcat(k->content,text_hex);
-        k->currentContentSize = k->currentContentSize+added_len;
-    }else{
-        fprintf(stderr,"\nkeyboard_addOSProbe(): Keyboard maximum content size exceeded !\n");
-        return;
-    }
-}
-
-void DAPLUGCALL keyboard_addTextWindows(Keyboard *k, char *text){
+int DAPLUGCALL keyboard_addTextWindows(Keyboard *k, char *text){
 
     int len_text = strlen(text),
         added_len,
@@ -163,28 +174,34 @@ void DAPLUGCALL keyboard_addTextWindows(Keyboard *k, char *text){
                 strcat(k->content,"04");
                 strcat(k->content,mwtl_s);
                 part = str_sub(text,i,i+MAX_WINDOWS_TEXT_LEN-1);
-                addAsciiText(k,part);
+                if(!addAsciiText(k,part)){
+                    fprintf(stderr,"\nkeyboard_addTextWindows(): An error occured when adding text !\n");
+                    return 0;
+                }
                 free(part);
                 part = NULL;
                 k->currentContentSize = k->currentContentSize+added_len;
             }
             else{
-                fprintf(stderr,"\nkeyboard_addOSProbe(): Keyboard maximum content size exceeded !\n");
-                return;
+                fprintf(stderr,"\nkeyboard_addTextWindows(): Keyboard maximum content size exceeded !\n");
+                return 0;
             }
         }else{
             if(k->currentContentSize+added_len <= MAX_KB_CONTENT_SIZE){
                 strcat(k->content,"04");
                 strcat(k->content,last_part_len_s);
                 part = str_sub(text,i,i+last_part_len-1);
-                addAsciiText(k,part);
+                if(!addAsciiText(k,part)){
+                    fprintf(stderr,"\nkeyboard_addTextWindows(): An error occured when adding text !\n");
+                    return 0;
+                }
                 free(part);
                 part = NULL;
                 k->currentContentSize = k->currentContentSize+added_len;
             }
             else{
-                fprintf(stderr,"\nkeyboard_addOSProbe(): Keyboard maximum content size exceeded !\n");
-                return;
+                fprintf(stderr,"\nkeyboard_addTextWindows(): Keyboard maximum content size exceeded !\n");
+                return 0;
             }
         }
 
@@ -192,9 +209,10 @@ void DAPLUGCALL keyboard_addTextWindows(Keyboard *k, char *text){
         nb--;
     }
 
+    return 1;
 }
 
-void DAPLUGCALL keyboard_addTextMac(Keyboard *k, char *text, int azerty, int delay){
+int DAPLUGCALL keyboard_addTextMac(Keyboard *k, char *text, int azerty, int delay){
 
     int len_text = strlen(text),
         added_len,
@@ -230,14 +248,17 @@ void DAPLUGCALL keyboard_addTextMac(Keyboard *k, char *text, int azerty, int del
                 strcat(k->content,azerty_s);
                 strcat(k->content,delay_s);
                 part = str_sub(text,i,i+MAX_MAC_TEXT_LEN-1);
-                addAsciiText(k,part);
+                if(!addAsciiText(k,part)){
+                    fprintf(stderr,"\nkeyboard_addTextMac(): An error occured when adding text !\n");
+                    return 0;
+                }
                 free(part);
                 part = NULL;
                 k->currentContentSize = k->currentContentSize+added_len;
             }
             else{
-                fprintf(stderr,"\nkeyboard_addOSProbe(): Keyboard maximum content size exceeded !\n");
-                return;
+                fprintf(stderr,"\nkeyboard_addTextMac(): Keyboard maximum content size exceeded !\n");
+                return 0;
             }
         }else{
             if(k->currentContentSize+added_len <= MAX_KB_CONTENT_SIZE){
@@ -246,14 +267,17 @@ void DAPLUGCALL keyboard_addTextMac(Keyboard *k, char *text, int azerty, int del
                 strcat(k->content,azerty_s);
                 strcat(k->content,delay_s);
                 part = str_sub(text,i,i+last_part_len-1);
-                addAsciiText(k,part);
+                if(!addAsciiText(k,part)){
+                    fprintf(stderr,"\nkeyboard_addTextMac(): An error occured when adding text !\n");
+                    return 0;
+                }
                 free(part);
                 part = NULL;
                 k->currentContentSize = k->currentContentSize+added_len;
             }
             else{
-                fprintf(stderr,"\nkeyboard_addOSProbe(): Keyboard maximum content size exceeded !\n");
-                return;
+                fprintf(stderr,"\nkeyboard_addTextMac(): Keyboard maximum content size exceeded !\n");
+                return 0;
             }
         }
 
@@ -261,9 +285,11 @@ void DAPLUGCALL keyboard_addTextMac(Keyboard *k, char *text, int azerty, int del
         nb--;
     }
 
+    return 1;
+
 }
 
-void DAPLUGCALL keyboard_addKeyCodeRaw(Keyboard *k, char *code){
+int DAPLUGCALL keyboard_addKeyCodeRaw(Keyboard *k, char *code){
 
     int len_code = strlen(code)/2;
     char len_code_s[1*2+1]="";
@@ -280,12 +306,14 @@ void DAPLUGCALL keyboard_addKeyCodeRaw(Keyboard *k, char *code){
         k->currentContentSize = k->currentContentSize+added_len;
     }else{
         fprintf(stderr,"\nkeyboard_addKeyCodeRaw(): Keyboard maximum content size exceeded !\n");
-        return;
+        return 0;
     }
+
+    return 1;
 
 }
 
-void DAPLUGCALL keyboard_addKeyCodeRelease(Keyboard *k,char *code){
+int DAPLUGCALL keyboard_addKeyCodeRelease(Keyboard *k,char *code){
 
     int len_code = strlen(code)/2;
     char len_code_s[1*2+1]="";
@@ -302,12 +330,14 @@ void DAPLUGCALL keyboard_addKeyCodeRelease(Keyboard *k,char *code){
         k->currentContentSize = k->currentContentSize+added_len;
     }else{
         fprintf(stderr,"\nkeyboard_addKeyCodeRelease(): Keyboard maximum content size exceeded !\n");
-        return;
+        return 0;
     }
+
+    return 1;
 
 }
 
-void DAPLUGCALL keyboard_addHotpCode(Keyboard *k, int flag, int digitsNb, int keysetVersion, int counterFileId, char *div){
+ int DAPLUGCALL keyboard_addHotpCode(Keyboard *k, int flag, int digitsNb, int keysetVersion, int counterFileId, char *div){
 
     char flag_s[1*2+1]="",
          digitsNb_s[1*2+1]="",
@@ -328,7 +358,7 @@ void DAPLUGCALL keyboard_addHotpCode(Keyboard *k, int flag, int digitsNb, int ke
             strcat(tmp,div);
         }else{
             fprintf(stderr,"\nkeyboard_addHotpCode(): Invalid diversifier !\n");
-            return;
+            return 0;
         }
     }
     strcat(tmp,cfi_s);
@@ -347,12 +377,14 @@ void DAPLUGCALL keyboard_addHotpCode(Keyboard *k, int flag, int digitsNb, int ke
         k->currentContentSize = k->currentContentSize+added_len;
     }else{
         fprintf(stderr,"\nkeyboard_addReturn(): Keyboard maximum content size exceeded !\n");
-        return;
+        return 0;
     }
+
+    return 1;
 
 }
 
-void DAPLUGCALL keyboard_addReturn(Keyboard *k){
+int DAPLUGCALL keyboard_addReturn(Keyboard *k){
 
     int added_len = strlen("0D00");
     added_len = added_len/2;
@@ -362,12 +394,13 @@ void DAPLUGCALL keyboard_addReturn(Keyboard *k){
         k->currentContentSize = k->currentContentSize+added_len;
     }else{
         fprintf(stderr,"\nkeyboard_addReturn(): Keyboard maximum content size exceeded !\n");
-        return;
+        return 0;
     }
 
+    return 1;
 }
 
-void DAPLUGCALL keyboard_addSleep(Keyboard *k, int duration){
+int DAPLUGCALL keyboard_addSleep(Keyboard *k, int duration){
 
     char duration_s[4*2+1]="";
     int added_len = 0;
@@ -392,16 +425,18 @@ void DAPLUGCALL keyboard_addSleep(Keyboard *k, int duration){
         k->currentContentSize = k->currentContentSize+added_len;
     }else{
         fprintf(stderr,"\nkeyboard_addSleep(): Keyboard maximum content size exceeded !\n");
-        return;
+        return 0;
     }
+
+    return 1;
 
 }
 
-void DAPLUGCALL keyboard_zeroPad(Keyboard *k, int size){
+int DAPLUGCALL keyboard_zeroPad(Keyboard *k, int size){
 
     if(size <= k->currentContentSize){
         fprintf(stderr,"\nkeyboard_zeroPad(): Keyboard content size exceeded !\n");
-        return;
+        return 0;
     }
 
     while(size > k->currentContentSize){
@@ -411,9 +446,10 @@ void DAPLUGCALL keyboard_zeroPad(Keyboard *k, int size){
             k->currentContentSize = k->currentContentSize+1;
         }else{
             fprintf(stderr,"\nkeyboard_zeroPad(): Keyboard maximum content size exceeded !\n");
-            return;
+            return 0;
         }
 
     }
 
+    return 1;
 }

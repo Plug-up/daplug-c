@@ -878,6 +878,58 @@ int DAPLUGCALL Daplug_computeDiversifiedKeys(DaplugDongle *dpd, Keyset keys, Key
 
 }
 
+int DAPLUGCALL Daplug_computeDiversifiedKeysUsingSAM(DaplugDongle *dpd, int SAMExportableKeyVersion, char *div1, char *div2, Keyset *div_keys){
+
+
+    if(dpd->sessionType != HARD_SC){
+        fprintf(stderr,"\nDaplug_computeDiversifiedKeysUsingSAM(): a SAM authentication is required !\n");
+        return 0;
+    }
+
+    //flag : force Div1
+    int flag = SAM_1_DIV;
+
+    //Check diversifiers
+    //Div1 is required
+    if(div1 != NULL){
+        if(strlen(div1) != 16*2 || !isHexInput(div1)){
+            fprintf(stderr,"\nDaplug_computeDiversifiedKeysUsingSAM(): Wrong value for parameter div1 !\n");
+            return 0;
+        }
+    }else{
+        fprintf(stderr,"\nDaplug_computeDiversifiedKeysUsingSAM(): Parameter div1 is required !\n");
+        return 0;
+    }
+
+    //Div2
+    if(div2 != NULL){
+        if(strlen(div2) != 16*2 || !isHexInput(div2)){
+            fprintf(stderr,"\nDaplug_computeDiversifiedKeysUsingSAM(): Wrong value for parameter div2 !\n");
+            return 0;
+        }
+
+        flag = flag + SAM_2_DIV;
+    }
+
+    char **keys = NULL;
+    if((keys = SAM_computeDiversifiedKey(dpd->SAMDpd, SAMExportableKeyVersion, flag, div1, div2))){
+
+        int i;
+        for(i=0; i<3; i++){
+            strToBytes(keys[i],div_keys->key[i]);
+            free(keys[i]);
+        }
+        free(keys);
+
+    }else{
+        fprintf(stderr,"\nDaplug_computeDiversifiedKeysUsingSAM(): Cannot diversify keys !\n");
+        return 0;
+    }
+
+    return 1;
+
+}
+
 int DAPLUGCALL Daplug_deAuthenticate(DaplugDongle *dpd){
 
     if(dpd->session_opened){

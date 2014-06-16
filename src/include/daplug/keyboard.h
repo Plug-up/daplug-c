@@ -46,7 +46,7 @@ typedef enum {
 } keyborad_hotp_flag;
 
 /**
- * \fn void keyboard_init(Keyboard *k)
+ * \fn int keyboard_init(Keyboard *k)
  * \param k A new Keyboard object
  *
  * Creates a new empty Keyboard
@@ -65,134 +65,146 @@ void DAPLUGAPI DAPLUGCALL keyboard_getContent(Keyboard *k, char *content);
 
 /**
  * \ingroup Keyboard
- * \fn void keyboard_addOSProbe(Keyboard *k, int nb, int delay, int code)
+ * \fn int keyboard_addOSProbe(Keyboard *k, int nb, int delay, int code)
  * \param k A Keyboard instance
  * \param nb Number of Hid reports (optional)
  * \param delay Delay before Hid report (optional)
  * \param code Keycode sent in each report (optional)
+ * \return 1 if success ; 0 if failure
  *
  * Adds an OS probe to the keyboard file content. If the value of an optional parameter is not specified (=-1) a default value is used instead.
 */
-void DAPLUGAPI DAPLUGCALL keyboard_addOSProbe(Keyboard *k, int nb, int delay, int code);
+int DAPLUGAPI DAPLUGCALL keyboard_addOSProbe(Keyboard *k, int nb, int delay, int code);
 
 /**
  * \ingroup Keyboard
- * \fn void keyboard_addOSProbeWinR(Keyboard *k, int nb, int delay, int code)
+ * \fn int keyboard_addOSProbeWinR(Keyboard *k, int nb, int delay, int code)
  * \param k A Keyboard instance
  * \param nb Number of Hid reports (optional)
  * \param delay Delay before Hid report (optional)
  * \param code Keycode sent in each report (optional)
+ * \return 1 if success ; 0 if failure
  *
  * Adds an OS probe to the keyboard file content. If a Windows OS is detected, a Win+R is made.
  * If the value of an optional parameter is not specified (=-1) a default value is used instead.
 */
-void DAPLUGAPI DAPLUGCALL keyboard_addOSProbeWinR(Keyboard *k, int nb, int delay, int code);
+int DAPLUGAPI DAPLUGCALL keyboard_addOSProbeWinR(Keyboard *k, int nb, int delay, int code);
 
 /**
  * \ingroup Keyboard
- * \fn void keyboard_addIfPC(Keyboard *k)
+ * \fn int keyboard_addIfPC(Keyboard *k)
  * \param k A Keyboard instance
+ * \return 1 if success ; 0 if failure
  *
  * Adds a condition to execute following code if Windows OS is detected.
 */
-void DAPLUGAPI DAPLUGCALL keyboard_addIfPC(Keyboard *k);
+int DAPLUGAPI DAPLUGCALL keyboard_addIfPC(Keyboard *k);
 
 /**
  * \ingroup Keyboard
- * \fn void keyboard_addIfMac(Keyboard *k)
+ * \fn int keyboard_addIfMac(Keyboard *k)
  * \param k A Keyboard instance
+ * \return 1 if success ; 0 if failure
  *
  * Adds a condition to execute following code if Mac OS is detected.
 */
-void DAPLUGAPI DAPLUGCALL keyboard_addIfMac(Keyboard *k);
+int DAPLUGAPI DAPLUGCALL keyboard_addIfMac(Keyboard *k);
 
 /**
  * \ingroup Keyboard
-* \fn void keyboard_addTextWindows(Keyboard *k, char *text)
+ * \fn int keyboard_addTextWindows(Keyboard *k, char *text)
  * \param k A Keyboard instance
  * \param text Text to add
+ * \return 1 if success ; 0 if failure
  *
  * Adds text to the keyboard file content in Windows format.
 */
-void DAPLUGAPI DAPLUGCALL keyboard_addTextWindows(Keyboard *k, char *text);
+int DAPLUGAPI DAPLUGCALL keyboard_addTextWindows(Keyboard *k, char *text);
 
 /**
  * \ingroup Keyboard
- * \fn void keyboard_addTextMac(Keyboard *k, char *text, int azerty, int delay)
+ * \fn int keyboard_addTextMac(Keyboard *k, char *text, int azerty, int delay)
  * \param k A Keyboard instance
  * \param text Text to add
  * \param azerty A flag indicating if we use azerty or qwerty format (optional)
  * \param delay Delay before Hid report (optional)
+ * \return 1 if success ; 0 if failure
  *
  * Adds text to the keyboard file content in Mac format.
  * If the value of an optional parameter is not specified (=-1) a default value is used instead.
 */
-void DAPLUGAPI DAPLUGCALL keyboard_addTextMac(Keyboard *k, char *text, int azerty, int delay);
+int DAPLUGAPI DAPLUGCALL keyboard_addTextMac(Keyboard *k, char *text, int azerty, int delay);
 
 /**
  * \ingroup Keyboard
- * \fn void keyboard_addKeyCodeRaw(Keyboard *k, char *code)
+ * \fn int keyboard_addKeyCodeRaw(Keyboard *k, char *code)
  * \param k A Keyboard instance
  * \param code Keycode
+ * \return 1 if success ; 0 if failure
  *
  * Adds sequence of keycodes (without modifiers) to the keyboard file content.
 */
-void DAPLUGAPI DAPLUGCALL keyboard_addKeyCodeRaw(Keyboard *k, char *code);
+int DAPLUGAPI DAPLUGCALL keyboard_addKeyCodeRaw(Keyboard *k, char *code);
 
 /**
  * \ingroup Keyboard
- * \fn void keyboard_addKeyCodeRelease(Keyboard *k,char *code)
+ * \fn int keyboard_addKeyCodeRelease(Keyboard *k,char *code)
  * \param k A Keyboard instance
  * \param code Keycode
+ * \return 1 if success ; 0 if failure
  *
  * Adds a sequence of Keycode Containers sent with interleaving empty report, and terminated with an empty report to the keyboard file content.
 */
-void DAPLUGAPI DAPLUGCALL keyboard_addKeyCodeRelease(Keyboard *k,char *code);
+int DAPLUGAPI DAPLUGCALL keyboard_addKeyCodeRelease(Keyboard *k,char *code);
 
 /**
  * \ingroup Keyboard
- * \fn void keyboard_addHotpCode(Keyboard *k, int flag, int digitsNb, int keysetVersion, int counterFileId, char *div)
+ * \fn int keyboard_addHotpCode(Keyboard *k, int flag, int digitsNb, int keysetVersion, int counterFileId, char *div)
  * \param k A Keyboard instance
  * \param flag A flag indicating if we use diversifier or not and if the output is a numeric keypad or a converted hex (see keyborad_hotp_flag)
  * \param digitsNB Number of digits (6, 7 or 8)
  * \param keysetVersion An HOTP keyset version
  * \param counterFileId File Id of a counter file in the counter directory
  * \param div Diversifier (optional)
+ * \return 1 if success ; 0 if failure
  *
  * Adds HOTP tag and parameters to the keyboard file content.
  * If the diversifier is not provided, div parameter must be equal to an empty string ("")
 */
-void DAPLUGAPI DAPLUGCALL keyboard_addHotpCode(Keyboard *k, int flag, int digitsNb, int keysetVersion, int counterFileId, char *div);
+int DAPLUGAPI DAPLUGCALL keyboard_addHotpCode(Keyboard *k, int flag, int digitsNb, int keysetVersion, int counterFileId, char *div);
 
 /**
  * \ingroup Keyboard
- * \fn void keyboard_addReturn(Keyboard *k)
+ * \fn int keyboard_addReturn(Keyboard *k)
  * \param k A Keyboard instance
+ * \return 1 if success ; 0 if failure
  *
  * Adds a carriage return to the keyboard file content.
 */
-void DAPLUGAPI DAPLUGCALL keyboard_addReturn(Keyboard *k);
+int DAPLUGAPI DAPLUGCALL keyboard_addReturn(Keyboard *k);
 
 /**
  * \ingroup Keyboard
- * \fn void keyboard_addSleep(Keyboard *k, int duration)
+ * \fn int keyboard_addSleep(Keyboard *k, int duration)
  * \param k A Keyboard instance
  * \param duration Duration of the sleep (optional)
+ * \return 1 if success ; 0 if failure
  *
  * Adds a sleep to the keyboard file content.
  * If the value of duration parameter is not specified (=-1) a default value is used instead.
 */
-void DAPLUGAPI DAPLUGCALL keyboard_addSleep(Keyboard *k, int duration);
+int DAPLUGAPI DAPLUGCALL keyboard_addSleep(Keyboard *k, int duration);
 
 /**
  * \ingroup Keyboard
- * \fn void keyboard_zeroPad(Keyboard *k, int size)
+ * \fn int keyboard_zeroPad(Keyboard *k, int size)
  * \param k A Keyboard instance
  * \param size Desired total size of the keyboard file
+ * \return 1 if success ; 0 if failure
  *
- * Fills the end of keyboard file with zeroes to avoid misinterpretation.
+ * Fills the end of keyboard file with zeroes to aint misinterpretation.
 */
-void DAPLUGAPI DAPLUGCALL keyboard_zeroPad(Keyboard *k, int size);
+int DAPLUGAPI DAPLUGCALL keyboard_zeroPad(Keyboard *k, int size);
 
 #ifdef __cplusplus
 }

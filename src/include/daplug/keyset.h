@@ -64,12 +64,13 @@ typedef struct{
 
 /**
  * \ingroup Daplug
- * \fn void keyset_createKeys(Keyset *keys, int version,const char* encKey,const char* macKey,const char* dekKey)
+ * \fn int keyset_createKeys(Keyset *keys, int version,const char* encKey,const char* macKey,const char* dekKey)
  * \param version Keyset version
  * \param encKey A new ENC key value (string of bytes)
  * \param macKey A new MAC key value (string of bytes ; optional)
  * \param dekKey A new DEK key value (string of bytes ; optional)
  * \param keys A new Keyset object
+ * \return 1 if success ; 0 if failure
  *
  * Creates a new Keyset instance with the provided keys values.
  * If the MAC or DEK key is not specified, the same ENC key value is used instead.
@@ -78,9 +79,10 @@ int DAPLUGAPI DAPLUGCALL keyset_createKeys(Keyset *keys, int version,const char*
 
 /**
  * \ingroup Daplug
- * \fn void keyset_setVersion(Keyset *keys, int version)
+ * \fn int keyset_setVersion(Keyset *keys, int version)
  * \param keys A Keyset instance
  * \param version Keyset version
+ * \return 1 if success ; 0 if failure
  *
  * Sets keyset version
 */
@@ -92,16 +94,17 @@ int DAPLUGAPI DAPLUGCALL keyset_setVersion(Keyset* keys, int version);
  * \param keys A Keyset instance
  * \param version Returned keyset version
  *
- * Return keyset version
+ * Returns keyset version
 */
 void DAPLUGAPI DAPLUGCALL keyset_getVersion(Keyset, int *version);
 
 /**
  * \ingroup Daplug
- * \fn void keyset_setKey(Keyset *keys,int id, char *key_value)
+ * \fn int keyset_setKey(Keyset *keys,int id, char *key_value)
  * \param keys A Keyset instance
  * \param id Key index in the keyset
  * \param key_value A new key value (as a string of bytes)
+ * \return 1 if success ; 0 if failure
  *
  * Sets a new key value for the keyset
 */
@@ -109,12 +112,12 @@ int DAPLUGAPI DAPLUGCALL keyset_setKey(Keyset *keys,int id,char* key_value);
 
 /**
  * \ingroup Daplug
- * \fn void keyset_getKey(Keyset keys,int id, char *key_value)
+ * \fn int keyset_getKey(Keyset keys,int id, char *key_value)
  * \param keys A Keyset instance
  * \param id Key index in the keyset
  * \param key_value Returned key value (as a string of bytes)
  *
- * Return the key value requested by id
+ * Returns the key value requested by id
 */
 void DAPLUGAPI DAPLUGCALL keyset_getKey(Keyset keys,int id, char* key_value);
 
@@ -124,14 +127,15 @@ void DAPLUGAPI DAPLUGCALL keyset_getKey(Keyset keys,int id, char* key_value);
  * \param keys A Keyset instance
  * \param ku Returned key usage
  *
- * Return the keyset role
+ * Returns the keyset role
 */
 void DAPLUGAPI DAPLUGCALL keyset_getKeyUsage(Keyset keys, int *ku);
 /**
  * \ingroup Daplug
- * \fn void keyset_setKeyAccess(Keyset *keys,Byte access[2])
+ * \fn int keyset_setKeyAccess(Keyset *keys,Byte access[2])
  * \param keys A Keyset instance
  * \param access Keyset access conditions
+ * \return 1 if success ; 0 if failure
  *
  * Sets the keyset access conditions
 */

@@ -41,8 +41,6 @@ typedef enum{
 
 } sam_operations;
 
-int diversifyCleartext(DaplugDongle *daplugSAM, int cleartextExportableKeyVersion, int flag, char *div1, char *div2, char **keys);
-
 int encryptDek(DaplugDongle *daplugSAM, int ctxKeyVersion, int ctxKeyId, char *DEKSessionSAM, int isLastBlock, char *inData,
                       char *encData);
 
@@ -76,6 +74,9 @@ Prepare a put key command using a SAM
 int SAM_createPutKeyCommand(DaplugDongle *daplugSAM, int SAMCtxKeyVersion, int SAMCtxKeyId,
                             int SAMProvisionableKeyVersion, char *DEKSessionSAMKey, char *div1, char *div2,
                             char *numKeyset, char *mode, char *keyUsage, char *keyAccess, char *putKeyCommand);
+
+//Compute cleartext diversified version of SAM exportable keyset
+char** SAM_computeDiversifiedKey(DaplugDongle *daplugSAM, int SAMExportableKeyVersion, int flag, char *div1, char *div2);
 
 #ifdef __cplusplus
 }

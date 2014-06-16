@@ -249,9 +249,8 @@ static int diversifyForPutkey(DaplugDongle *daplugSAM, int SAMCtxKeyVersion, int
 
 /*
 Returns the cleartext diversified keys of the given SAM cleartext exportable keyset.
-Expects a char[3][16*2+1] initialized to {"","",""} for keys.
 */
-int diversifyCleartext(DaplugDongle *daplugSAM, int cleartextExportableKeyVersion, int flag, char *div1, char *div2, char **keys){
+char** diversifyCleartext(DaplugDongle *daplugSAM, int cleartextExportableKeyVersion, int flag, char *div1, char *div2){
 
     char    cleartextExportableKeyVersion_str[1*2+1]="",
             flag_str[1*2+1]="";
@@ -269,7 +268,7 @@ int diversifyCleartext(DaplugDongle *daplugSAM, int cleartextExportableKeyVersio
     if(flag & SAM_1_DIV || flag & SAM_2_DIV){
         if(div1 == NULL || strlen(div1) != 16*2 || !isHexInput(div1)){
             fprintf(stderr,"\ndiversifyCleartext() - Wrong value for parameter div1 !\n");
-            return 0;
+            return NULL;
         }else{
             strcpy(div1_,div1);
             lc = lc + 16;
@@ -279,7 +278,7 @@ int diversifyCleartext(DaplugDongle *daplugSAM, int cleartextExportableKeyVersio
     if(flag & SAM_2_DIV){
         if(div2 == NULL || strlen(div2) != 16*2 || !isHexInput(div2)){
             fprintf(stderr,"\ndiversifyCleartext() - Wrong value for parameter div2 !\n");
-            return 0;
+            return NULL;
         }else{
             strcpy(div2_,div2);
             lc = lc + 16;
@@ -303,29 +302,44 @@ int diversifyCleartext(DaplugDongle *daplugSAM, int cleartextExportableKeyVersio
     Apdu apdu;
     if(!setApduCmd(apdu_str,&apdu)){
         fprintf(stderr,"\ndiversifyCleartext() - An error occured when setting the Apdu !\n");
-        return 0;
+        return NULL;
     }
 
     //exchange it
     if(!exchangeApdu(daplugSAM,&apdu)){
         fprintf(stderr,"\ndiversifyCleartext() - An error occured when exchanging the Apdu !\n");
-        return 0;
+        return NULL;
     }
 
     if(strcmp(apdu.sw_str,"9000")){
         fprintf(stderr,"\ndiversifyCleartext() - Apdu command ended abnormally !\n");
-        return 0;
+        return NULL;
     }
 
     //Cleartext keys
+
+    char **cleartextKeys = (char**) calloc(3, sizeof(char*));
+
+    if(cleartextKeys == NULL){
+        fprintf(stderr,"\ndiversifyCleartext() - Memory problem !\n");
+        return NULL;
+    }
+
     int i;
     char *tmp = NULL;
     for(i=0;i<3;i++){
-        strcpy(keys[i], tmp = str_sub(apdu.r_str, i*16*2, (i+1)*16*2-1));
+
+        if((cleartextKeys[i] = (char*) calloc(GP_KEY_SIZE*2+1, sizeof(char))) == NULL){
+            fprintf(stderr,"\ndiversifyCleartext() - Memory problem !\n");
+            free(cleartextKeys);
+            return NULL;
+        }
+
+        strcpy(cleartextKeys[i], tmp = str_sub(apdu.r_str, i*GP_KEY_SIZE*2, (i+1)*GP_KEY_SIZE*2-1));
         free(tmp);
     }
 
-    return 1;
+    return cleartextKeys;
 
 }
 
@@ -1119,7 +1133,7 @@ char **SAM_computeSessionKeys(DaplugDongle *daplugSAM, int SAMCtxKeyVersion, int
 
     if(sessionSAMKeys == NULL){
         fprintf(stderr,"\nSAM_computeSessionKeys(): Cannot compute session keys SAM material !\n");
-        return 0;
+        return NULL;
     }
 
     return sessionSAMKeys;
@@ -1226,4 +1240,10 @@ int SAM_createPutKeyCommand(DaplugDongle *daplugSAM, int SAMCtxKeyVersion, int S
     strcpy(putKeyCommand,putKeyCommand_temp);
 
     return 1;
+}
+
+char** SAM_computeDiversifiedKey(DaplugDongle *daplugSAM, int SAMExportableKeyVersion, int flag, char *div1, char *div2){
+
+    return diversifyCleartext(daplugSAM, SAMExportableKeyVersion, flag, div1, div2);
+
 }

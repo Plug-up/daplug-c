@@ -4,7 +4,7 @@
  * \author S.BENAMAR s.benamar@plug-up.com
  * \
  * \version 1.0
- * \date 26/05/2014
+ * \date 09/06/2014
  *
  * Different sets of tests to understand how the C Daplug API works and what we can do with.
  *
@@ -40,56 +40,99 @@ char *diversifier1 = "0123456789abcdeffedcba9876543210",
      *diversifier2 = "fedcba98765432100123456789abcdef";
 
 
-void testModeSwitching(DaplugDongle *dpdCard, int mode){
+int testModeSwitching(DaplugDongle *dpdCard, int mode){
 
     if(mode == 0 ){
         fprintf(stderr,"\n+Switch to hid mode...");
-        Daplug_winusbToHid(dpdCard);
+        if(!Daplug_winusbToHid(dpdCard)){
+            fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+            return 0;
+        }
     }
 
     if(mode == 1){
         fprintf(stderr,"\n+Switch to winusb mode...");
-        Daplug_hidToWinusb(dpdCard);
+        if(!Daplug_hidToWinusb(dpdCard)){
+            fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+            return 0;
+        }
     }
+
+    fprintf(stderr, "\n**************************************************************");
+    fprintf(stderr, "\n********** \"testModeSwitching\" terminated with success *******\n");
+    fprintf(stderr, "**************************************************************\n");
+
+    return 1;
 
 }
 
-void testAuthentication(DaplugDongle *dpdCard, int level){
-
-    fprintf(stderr,"\n+Authentication...");
+int testAuthentication(DaplugDongle *dpdCard, int level){
 
     switch(level){
         case 1 :
-            Daplug_authenticate(dpdCard, keyset01,C_MAC,NULL,NULL);
+            if(!Daplug_authenticate(dpdCard, keyset01,C_MAC,NULL,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 2 :
-            Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC,NULL,NULL);
+            if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC,NULL,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 3 :
-            Daplug_authenticate(dpdCard, keyset01,C_MAC+R_MAC,NULL,NULL);
+            if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+R_MAC,NULL,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 4 :
-            Daplug_authenticate(dpdCard, keyset01,C_MAC+R_ENC,NULL,NULL);
+            if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+R_ENC,NULL,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 5 :
-            Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC,NULL,NULL);
+            if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC,NULL,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 6 :
-            Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_ENC,NULL,NULL);
+            if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_ENC,NULL,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 7 :
-            Daplug_authenticate(dpdCard, keyset01,C_MAC+R_MAC+R_ENC,NULL,NULL);
+            if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+R_MAC+R_ENC,NULL,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 8 :
-            Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
+            if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         default :
-            Daplug_authenticate(dpdCard, keyset01,C_MAC,NULL,NULL);
+            if(!Daplug_authenticate(dpdCard, keyset01,C_MAC,NULL,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
     }
+
+    fprintf(stderr, "\n***************************************************************");
+    fprintf(stderr, "\n********** \"testAuthentication\" terminated with success *******\n");
+    fprintf(stderr, "***************************************************************\n");
+
+    return 1;
 
 }
 
-void testDivAuthentication(DaplugDongle *dpdCard, int level){
+int testDivAuthentication(DaplugDongle *dpdCard, int level){
 
     fprintf(stderr,"\n+Authentication using diversified keys...");
 
@@ -100,92 +143,163 @@ void testDivAuthentication(DaplugDongle *dpdCard, int level){
 
     switch(level){
         case 1 :
-            Daplug_authenticate(dpdCard, divk,C_MAC,NULL,NULL);
+            if(!Daplug_authenticate(dpdCard, divk,C_MAC,NULL,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 2 :
-            Daplug_authenticate(dpdCard, divk,C_MAC+C_DEC,diversifier1,NULL);
+            if(!Daplug_authenticate(dpdCard, divk,C_MAC+C_DEC,diversifier1,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 3 :
-            Daplug_authenticate(dpdCard, divk,C_MAC+R_MAC,diversifier1,NULL);
+            if(!Daplug_authenticate(dpdCard, divk,C_MAC+R_MAC,diversifier1,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 4 :
-            Daplug_authenticate(dpdCard, divk,C_MAC+R_ENC,diversifier1,NULL);
+            if(!Daplug_authenticate(dpdCard, divk,C_MAC+R_ENC,diversifier1,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 5 :
-            Daplug_authenticate(dpdCard, divk,C_MAC+C_DEC+R_MAC,diversifier1,NULL);
+            if(!Daplug_authenticate(dpdCard, divk,C_MAC+C_DEC+R_MAC,diversifier1,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 6 :
-            Daplug_authenticate(dpdCard, divk,C_MAC+C_DEC+R_ENC,diversifier1,NULL);
+            if(!Daplug_authenticate(dpdCard, divk,C_MAC+C_DEC+R_ENC,diversifier1,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 7 :
-            Daplug_authenticate(dpdCard, divk,C_MAC+R_MAC+R_ENC,diversifier1,NULL);
+            if(!Daplug_authenticate(dpdCard, divk,C_MAC+R_MAC+R_ENC,diversifier1,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 8 :
-            Daplug_authenticate(dpdCard, divk,C_MAC+C_DEC+R_MAC+R_ENC,diversifier1,NULL);
+            if(!Daplug_authenticate(dpdCard, divk,C_MAC+C_DEC+R_MAC+R_ENC,diversifier1,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         default :
-            Daplug_authenticate(dpdCard, divk,C_MAC,diversifier1,NULL);
+            if(!Daplug_authenticate(dpdCard, divk,C_MAC,diversifier1,NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
     }
+
+    fprintf(stderr, "\n******************************************************************");
+    fprintf(stderr, "\n********** \"testDivAuthentication\" terminated with success *******\n");
+    fprintf(stderr, "******************************************************************\n");
+
+    return 1;
 
 }
 
-void testAuthenticationWithSam(DaplugDongle *dpdCard, DaplugDongle *dpdSAM, int level){
+int testAuthenticationWithSam(DaplugDongle *dpdCard, DaplugDongle *dpdSAM, int level){
 
     //Chip serial as diversifier1
     char div1[16*2+1]="";
     if(!Daplug_getChipDiversifier(dpdCard, div1)){
-        fprintf(stderr,"\ntestAuthenticationWithSam(): An error occured !\n");
-        return;
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
     }
 
     switch(level){
 
         case 2 :
-            Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC, div1, NULL);
+            if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC, div1, NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 3 :
-            Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+R_MAC, div1, NULL);
+            if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+R_MAC, div1, NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 4 :
-            Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+R_ENC, div1, NULL);
+            if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+R_ENC, div1, NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 5 :
-            Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC+R_MAC, div1, NULL);
+            if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC+R_MAC, div1, NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 6 :
-            Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC+R_ENC, div1, NULL);
+            if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC+R_ENC, div1, NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 7 :
-            Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+R_MAC+R_ENC, div1, NULL);
+            if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+R_MAC+R_ENC, div1, NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         case 8 :
-            Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC+R_MAC+R_ENC, div1, NULL);
+            if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC+R_MAC+R_ENC, div1, NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             break;
         default :
-            Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC, div1, NULL);
+            if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC, div1, NULL)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
     }
+
+    fprintf(stderr, "\n**********************************************************************");
+    fprintf(stderr, "\n********** \"testAuthenticationWithSam\" terminated with success *******\n");
+    fprintf(stderr, "**********************************************************************\n");
+
+    return 1;
 
 }
 
-void testGetSerial(DaplugDongle *dpdCard){
+int testGetSerial(DaplugDongle *dpdCard){
+
     fprintf(stderr,"\n+TEST : GET SERIAL");
-    char sn[0x12*2+1]="";
-    if(Daplug_getDongleSerial(dpdCard, sn)){
-        fprintf(stderr,"\nSN = %s\n",sn);
+    char sn[18*2+1]="";
+    if(!Daplug_getDongleSerial(dpdCard, sn)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
     }
+
+    fprintf(stderr,"\nSN = %s\n",sn);
+
+    fprintf(stderr, "\n**********************************************************");
+    fprintf(stderr, "\n********** \"testGetSerial\" terminated with success *******\n");
+    fprintf(stderr, "**********************************************************\n");
+
+    return 1;
 }
 
-void testSetStatus(DaplugDongle *dpdCard, int status){
-    fprintf(stderr,"\n+TEST : SET STATUS");
-    Daplug_setDongleStatus(dpdCard, status);
-}
-
-void testGetStatus(DaplugDongle *dpdCard){
+int testGetStatus(DaplugDongle *dpdCard){
 
     int s = 0;
     char* status = "";
     fprintf(stderr,"\n+TEST : GET STATUS");
-    Daplug_getDongleStatus(dpdCard, &s);
+    if(!Daplug_getDongleStatus(dpdCard, &s)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     switch(s){
         case 0x0F:
             status = "PERSONALIZED";
@@ -197,32 +311,53 @@ void testGetStatus(DaplugDongle *dpdCard){
             status = "LOCKED";
             break;
     }
+
     fprintf(stderr,"\nstatus = %s\n",status);
+
+    fprintf(stderr, "\n**********************************************************");
+    fprintf(stderr, "\n********** \"testGetStatus\" terminated with success *******\n");
+    fprintf(stderr, "**********************************************************\n");
+
+    return 1;
 }
 
-void testDeleteKey(DaplugDongle *dpdCard, int version){
+int testPutkey(DaplugDongle *dpdCard){
 
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
-    Daplug_deleteKey(dpdCard, version);
-
-}
-
-void testPutkey(DaplugDongle *dpdCard){
-
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\n+TEST: Creating a new keyset");
-    Daplug_putKey(dpdCard, newKeyset, 0);
+    if(!Daplug_putKey(dpdCard, newKeyset, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     fprintf(stderr,"\nDeleting the created keyset..\n");
-    Daplug_deleteKey(dpdCard, newKeyset.version);
+    if(!Daplug_deleteKey(dpdCard, newKeyset.version)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    fprintf(stderr, "\n**********************************************************");
+    fprintf(stderr, "\n********** \"testPutkey\" terminated with success **********\n");
+    fprintf(stderr, "**********************************************************\n");
+
+    return 1;
 
 }
 
-void testPutkeyWithSAM(DaplugDongle *dpdCard, DaplugDongle *dpdSAM){
+int testPutkeyWithSAM(DaplugDongle *dpdCard, DaplugDongle *dpdSAM){
 
     //create SAM provisionnable keyset
-    Daplug_authenticate(dpdSAM, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
-    Daplug_putKey(dpdSAM, SAMProvisionnableKeyset, 0);
+    if(!Daplug_authenticate(dpdSAM, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_putKey(dpdSAM, SAMProvisionnableKeyset, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     //create SAM GP usable keyset with the same value of the provisionnable one ; it will be used later for authentication on the target new created keyset
     char enc[GP_KEY_SIZE*2+1]="", mac[GP_KEY_SIZE*2+1]="", dek[GP_KEY_SIZE*2+1]="";
@@ -233,15 +368,20 @@ void testPutkeyWithSAM(DaplugDongle *dpdCard, DaplugDongle *dpdSAM){
     keyset_getKey(SAMProvisionnableKeyset, 2, dek);
 
     if(!keyset_createKeys(&GPUsableKeyset, 0x60, enc, mac, dek)){
-        return;
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
     }
     GPUsableKeyset.usage = USAGE_SAM_GP;
     int access[] = {ACCESS_ALWAYS, 0x00}; //access according to key role
     if(!keyset_setKeyAccess(&GPUsableKeyset,access)){
-        return;
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
     }
 
-    Daplug_putKey(dpdSAM, GPUsableKeyset, 0);
+    if(!Daplug_putKey(dpdSAM, GPUsableKeyset, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     //Authenticate using SAM then create the new target key
 
@@ -251,80 +391,184 @@ void testPutkeyWithSAM(DaplugDongle *dpdCard, DaplugDongle *dpdSAM){
         newTargetKeysetAccess = (ACCESS_ALWAYS << 8) + C_MAC;
 
     char chipDiversifier[16*2+1]="";
-    Daplug_getChipDiversifier(card, chipDiversifier);
+    if(!Daplug_getChipDiversifier(card, chipDiversifier)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
-    Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC+R_MAC+R_ENC, chipDiversifier, NULL);
-    Daplug_putKeyUsingSAM(dpdCard, newTargetKeysetVersion, newTargetKeysetAccess, newTargetKeysetUsage, SAMProvisionnableKeyset.version, chipDiversifier, NULL, 0);
+    if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC+R_MAC+R_ENC, chipDiversifier, NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_putKeyUsingSAM(dpdCard, newTargetKeysetVersion, newTargetKeysetAccess, newTargetKeysetUsage, SAMProvisionnableKeyset.version, chipDiversifier, NULL, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     //test authentication on the new created card keyset
-    Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, GPUsableKeyset.version, newTargetKeysetVersion, C_MAC, chipDiversifier, NULL);
+    if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, GPUsableKeyset.version, newTargetKeysetVersion, C_MAC, chipDiversifier, NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     //clean card
-    Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC+R_MAC+R_ENC, chipDiversifier, NULL);
-    Daplug_deleteKey(dpdCard, newTargetKeysetVersion);
+    if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC+C_DEC+R_MAC+R_ENC, chipDiversifier, NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_deleteKey(dpdCard, newTargetKeysetVersion)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     //clean sam
-    Daplug_authenticate(dpdSAM, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
-    Daplug_deleteKey(dpdSAM, SAMProvisionnableKeyset.version);
-    Daplug_deleteKey(dpdSAM, GPUsableKeyset.version);
+    if(!Daplug_authenticate(dpdSAM, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_deleteKey(dpdSAM, SAMProvisionnableKeyset.version)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_deleteKey(dpdSAM, GPUsableKeyset.version)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    fprintf(stderr, "\n*****************************************************************");
+    fprintf(stderr, "\n********** \"testPutkeyWithSAM\" terminated with success **********\n");
+    fprintf(stderr, "*****************************************************************\n");
+
+    return 1;
 
 }
 
-void testExportKey(DaplugDongle *dpdCard){
+int testExportKey(DaplugDongle *dpdCard){
 
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\n+TEST: Export Key");
-    Daplug_putKey(dpdCard, transientKeyset, 0);
+    if(!Daplug_putKey(dpdCard, transientKeyset, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     char expk[APDU_D_MAXLEN*2+1]="";
-    Daplug_exportKey(dpdCard, 0xFD,1,expk);
+    if(!Daplug_exportKey(dpdCard, 0xFD,1,expk)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     fprintf(stderr,"\nexported key blob = %s\n",expk);
+
+    fprintf(stderr, "\n*************************************************************");
+    fprintf(stderr, "\n********** \"testExportKey\" terminated with success **********\n");
+    fprintf(stderr, "*************************************************************\n");
+
+    return 1;
 
 }
 
-void testImportKey(DaplugDongle *dpdCard){
+int testImportKey(DaplugDongle *dpdCard){
 
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+
+    }
 
     fprintf(stderr,"\n+TEST: Import Key");
     //blob previously exported
-    char impk[APDU_D_MAXLEN*2+1]="6825b2609ea2617c85861f5cc7ef44f735035ff5b3e665a3fa32ac0f7bf00c223c70688f56c0912700b9315a0dcb37377f388558f9ec508099f354c4bee4702c38e7862e61049ae1ee0b2b07bf12bc1a5b01bf24423b55a9";
-    Daplug_importKey(dpdCard, 0xFD,0x01,impk);
+    char impk[APDU_D_MAXLEN*2+1]="d021018877f69109eee09a177e4bb2ad37e6c4aab021efba2b468bc3198a4a02b1ada5453ffd2cd7fb96c7c22dba1ab218f12401fb746ce0821c3cdff943ced95aed4cba1aa2c51955e0ccc4133361f4b4fc6b2d76dfeb92";
+    if(!Daplug_importKey(dpdCard, 0xFD,0x01,impk)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     fprintf(stderr,"\n");
+
+    fprintf(stderr, "\n*************************************************************");
+    fprintf(stderr, "\n********** \"testImportKey\" terminated with success **********\n");
+    fprintf(stderr, "*************************************************************\n");
+
+    return 1;
 
 }
 
-void testFileSystem(DaplugDongle *dpdCard){
+int testFileSystem(DaplugDongle *dpdCard){
 
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\n+TEST: File System");
     int access[3]={ACCESS_ALWAYS,ACCESS_ALWAYS,ACCESS_ALWAYS};
-    Daplug_selectFile(dpdCard, FS_MASTER_FILE);
-    Daplug_createDir(dpdCard, 0x0190,access);
-    Daplug_selectPath(dpdCard, "3f000190");
-    Daplug_createFile(dpdCard, 0x01f4,260,access,0,0);
-    Daplug_selectFile(dpdCard, FS_MASTER_FILE);
-    Daplug_selectPath(dpdCard, "019001f4");
+    if(!Daplug_selectFile(dpdCard, FS_MASTER_FILE)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_createDir(dpdCard, 0x0190,access)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_selectPath(dpdCard, "3f000190")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_createFile(dpdCard, 0x01f4,260,access,0,0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_selectFile(dpdCard, FS_MASTER_FILE)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_selectPath(dpdCard, "019001f4")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     char w_data[264*2+1]="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567";
-    Daplug_writeData(dpdCard, 0x0000,w_data);
+    if(!Daplug_writeData(dpdCard, 0x0000,w_data)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     fprintf(stderr,"\nData to write = %s\n",w_data);
     char r_data[264*2+1]="";
-    Daplug_readData(dpdCard, 0x0000,264,r_data);
+    if(!Daplug_readData(dpdCard, 0x0000,264,r_data)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     fprintf(stderr,"\nRead data = %s\n",r_data);
-    Daplug_selectFile(dpdCard, FS_MASTER_FILE);
-    Daplug_deleteFileOrDir(dpdCard, 0x0190);
+    if(!Daplug_selectFile(dpdCard, FS_MASTER_FILE)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_deleteFileOrDir(dpdCard, 0x0190)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    fprintf(stderr, "\n**************************************************************");
+    fprintf(stderr, "\n********** \"testFileSystem\" terminated with success **********\n");
+    fprintf(stderr, "**************************************************************\n");
+
+    return 1;
 
 }
 
 
-void testEncryptDecrypt(DaplugDongle *dpdCard){
+int testEncryptDecrypt(DaplugDongle *dpdCard){
 
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\n+TEST: Encrypt / Decrypt");
 
-    Daplug_putKey(dpdCard, encDecKeyset, 0);
+    if(!Daplug_putKey(dpdCard, encDecKeyset, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     char in[MAX_REAL_DATA_SIZE*2+1]="0123456789abcdef0123456789abcdef", //must be a multiple of 8 bytes
          out[MAX_REAL_DATA_SIZE*2+1]="",
@@ -336,28 +580,55 @@ void testEncryptDecrypt(DaplugDongle *dpdCard){
     int options = use_cbc + use_div2;
 
     fprintf(stderr,"\nClear data = %s",in);
-    Daplug_encrypt(dpdCard, encDecKeyset.version,1,options,iv,diversifier1,diversifier2,in,out);
+    if(!Daplug_encrypt(dpdCard, encDecKeyset.version,1,options,iv,diversifier1,diversifier2,in,out)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     fprintf(stderr,"\nEncrypted data = %s",out);
     strcpy(in,out);
     strcpy(out,"");
-    Daplug_decrypt(dpdCard, encDecKeyset.version,1,options,iv,diversifier1,diversifier2,in,out);
+    if(!Daplug_decrypt(dpdCard, encDecKeyset.version,1,options,iv,diversifier1,diversifier2,in,out)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     fprintf(stderr,"\nDecrypted data = %s\n",out);
+
+    fprintf(stderr, "\n******************************************************************");
+    fprintf(stderr, "\n********** \"testEncryptDecrypt\" terminated with success **********\n");
+    fprintf(stderr, "******************************************************************\n");
+
+    return 1;
 
 }
 
-void testGenerateRandom(DaplugDongle *dpdCard, int len){
+int testGenerateRandom(DaplugDongle *dpdCard, int len){
 
     fprintf(stderr,"\n+TEST: GENERATE RANDOM");
     char rand[MAX_REAL_DATA_SIZE*2+1]="";
-    Daplug_getRandom(dpdCard, len,rand);
+    if(!Daplug_getRandom(dpdCard, len,rand)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     fprintf(stderr,"\nRandom value on %d bytes : %s",len,rand);
+
+    fprintf(stderr, "\n******************************************************************");
+    fprintf(stderr, "\n********** \"testGenerateRandom\" terminated with success **********\n");
+    fprintf(stderr, "******************************************************************\n");
+
+    return 1;
 }
 
-void testHmacSha1(DaplugDongle *dpdCard){
+int testHmacSha1(DaplugDongle *dpdCard){
 
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
-    Daplug_putKey(dpdCard, hmacSha1Keyset, 0);
+    if(!Daplug_putKey(dpdCard, hmacSha1Keyset, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\n+TEST: Hmac - sha1");
 
@@ -369,25 +640,41 @@ void testHmacSha1(DaplugDongle *dpdCard){
     char arbitraryData[MAX_REAL_DATA_SIZE*2+1]="01234587",//"012548deac475c5e478fde001111111144dddddddfea09999999999995",
          ret[MAX_REAL_DATA_SIZE*2+1]="";
 
-    Daplug_hmac(dpdCard, hmacSha1Keyset.version,options,diversifier1,diversifier2,arbitraryData,ret);
+    if(!Daplug_hmac(dpdCard, hmacSha1Keyset.version,options,diversifier1,diversifier2,arbitraryData,ret)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     //Clean card
-    Daplug_deleteKey(dpdCard, hmacSha1Keyset.version);
+    if(!Daplug_deleteKey(dpdCard, hmacSha1Keyset.version)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\nArbitrary data : %s",arbitraryData);
     fprintf(stderr,"\nSignature on 20 bytes: %s\n",ret);
 
+    fprintf(stderr, "\n************************************************************");
+    fprintf(stderr, "\n********** \"testHmacSha1\" terminated with success **********\n");
+    fprintf(stderr, "************************************************************\n");
+
+    return 1;
 
 }
 
-void testHotp(DaplugDongle *dpdCard){
+int testHotp(DaplugDongle *dpdCard){
 
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
-
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\n+TEST: Hotp");
 
-    Daplug_putKey(dpdCard, hotpKeyset, 0);
+    if(!Daplug_putKey(dpdCard, hotpKeyset, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     int options,
         //use1div = OTP_1_DIV,
@@ -400,30 +687,64 @@ void testHotp(DaplugDongle *dpdCard){
 
     //create counter file if it is not the case
     int ac[3] = {ACCESS_ALWAYS,ACCESS_ALWAYS,ACCESS_ALWAYS};
-    Daplug_selectPath(dpdCard, "3f00c010");
-    Daplug_createFile(dpdCard, counterFileId,8,ac,0,1);
+    if(!Daplug_selectPath(dpdCard, "3f00c010")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_createFile(dpdCard, counterFileId,8,ac,0,1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     char cntFileId_str[2*2+1]="c01d",
          ret[MAX_REAL_DATA_SIZE*2+1]="";
 
-    Daplug_hotp(dpdCard, hotpKeyset.version,options,diversifier1,diversifier2,cntFileId_str,ret);
+    if(!Daplug_hotp(dpdCard, hotpKeyset.version,options,diversifier1,diversifier2,cntFileId_str,ret)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     //Clean card
-    Daplug_selectPath(dpdCard, "3f00c010");
-    Daplug_deleteFileOrDir(dpdCard, counterFileId);
-    Daplug_deleteKey(dpdCard, hotpKeyset.version);
+    if(!Daplug_selectPath(dpdCard, "3f00c010")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_deleteFileOrDir(dpdCard, counterFileId)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_deleteKey(dpdCard, hotpKeyset.version)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\nHotp: %s\n",ret);
+
+    fprintf(stderr, "\n********************************************************");
+    fprintf(stderr, "\n********** \"testHotp\" terminated with success **********\n");
+    fprintf(stderr, "********************************************************\n");
+
+    return 1;
 }
 
-void testTotp(DaplugDongle *dpdCard){
+int testTotp(DaplugDongle *dpdCard){
 
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\n+TEST: Totp");
 
-    Daplug_putKey(dpdCard, TimeSrcKeyset, 0);//create a time source key if it is not the case
-    Daplug_putKey(dpdCard, totpKeyset, 0);
+    //create a time source key if it is not the case
+    if(!Daplug_putKey(dpdCard, TimeSrcKeyset, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_putKey(dpdCard, totpKeyset, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     int options,
         //use1div = OTP_1_DIV,
@@ -441,21 +762,44 @@ void testTotp(DaplugDongle *dpdCard){
     char ret[MAX_REAL_DATA_SIZE*2+1]="";
 
     //keys id are 1,2,3 ; in our struct Keyset they are 0,1,2 (it is why we make key_id + 1
-    Daplug_setTimeOTP(dpdCard, TimeSrcKeyset.version,key_id+1,key,0,0);//0x57 is a time src keyversion ; step & time are optional (0)
-    Daplug_totp(dpdCard, totpKeyset.version,options,diversifier1,diversifier2,"",ret); //use it with Daplug_totp Keyset ; set time otp before
+    //0x57 is a time src keyversion ; step & time are optional (0)
+    if(!Daplug_setTimeOTP(dpdCard, TimeSrcKeyset.version,key_id+1,key,0,0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    //use it with Daplug_totp Keyset ; set time otp before
+    if(!Daplug_totp(dpdCard, totpKeyset.version,options,diversifier1,diversifier2,"",ret)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     //Clean card
-    Daplug_deleteKey(dpdCard, totpKeyset.version);
-    Daplug_deleteKey(dpdCard, TimeSrcKeyset.version);
+    if(!Daplug_deleteKey(dpdCard, totpKeyset.version)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_deleteKey(dpdCard, TimeSrcKeyset.version)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\nTotp: %s\n",ret);
+
+    fprintf(stderr, "\n********************************************************");
+    fprintf(stderr, "\n********** \"testTotp\" terminated with success **********\n");
+    fprintf(stderr, "********************************************************\n");
+
+    return 1;
 
 }
 
 
-void testKeyboard(DaplugDongle *dpdCard, char *url, int makeHotp, int hotpFormat, char* divForHotp){
+int testKeyboard(DaplugDongle *dpdCard, char *url, int makeHotp, int hotpFormat, char* divForHotp){
 
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\n+TEST : Keyboard");
 
@@ -468,7 +812,8 @@ void testKeyboard(DaplugDongle *dpdCard, char *url, int makeHotp, int hotpFormat
         //Diversifier validity
         if(strlen(divForHotp)!=16*2 || !isHexInput(divForHotp)){
             fprintf(stderr,"\ntestKeyboard(): Wrong diversifier value !\n");
-            return;
+            fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+            return 0;
         }
         else{
             options = options + KB_HOTP_USE_DIV;
@@ -482,151 +827,356 @@ void testKeyboard(DaplugDongle *dpdCard, char *url, int makeHotp, int hotpFormat
         if(options & KB_HOTP_MODHEX){
             fprintf(stderr,"\nTry to create modhex mapping file...\n");
             //When using modhex output for hotp, try to create file "3f00/0001"
-            Daplug_selectPath(dpdCard, "3f00");
-            Daplug_createFile(dpdCard, modhexFileId,16,ac,0,0);
-            Daplug_selectFile(dpdCard, modhexFileId);
+            if(!Daplug_selectPath(dpdCard, "3f00")){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
+            if(!Daplug_createFile(dpdCard, modhexFileId,16,ac,0,0)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
+            if(!Daplug_selectFile(dpdCard, modhexFileId)){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
             //write Hid Code used  for mapping (refer to product specification for more details - section "keyboard file")
-            Daplug_writeData(dpdCard, 0,"06050708090a0b0c0d0e0f1115171819");
+            if(!Daplug_writeData(dpdCard, 0,"06050708090a0b0c0d0e0f1115171819")){
+                fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+                return 0;
+            }
         }
 
         //try to create Hotp keyset
         fprintf(stderr,"\nTry to create Hotp keyset...\n");
-        Daplug_putKey(dpdCard, hotpKeyset, 0);
+        if(!Daplug_putKey(dpdCard, hotpKeyset, 0)){
+            fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+            return 0;
+        }
         //Try to create counter file
         fprintf(stderr,"\nTry to create counter file...\n");
-        Daplug_selectPath(dpdCard, "3f00c010");
-        Daplug_createFile(dpdCard, counterFileId,8,ac,0,1);
+        if(!Daplug_selectPath(dpdCard, "3f00c010")){
+            fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+            return 0;
+        }
+        if(!Daplug_createFile(dpdCard, counterFileId,8,ac,0,1)){
+            fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+            return 0;
+        }
     }
 
     int fileSize = 500;
     fprintf(stderr,"\nTry to create keyboard file...\n");
-    Daplug_selectFile(dpdCard, FS_MASTER_FILE);
-    Daplug_createFile(dpdCard, kbFileId,fileSize,ac,0,0);
-    Daplug_selectFile(dpdCard, kbFileId);
+    if(!Daplug_selectFile(dpdCard, FS_MASTER_FILE)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_createFile(dpdCard, kbFileId,fileSize,ac,0,0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_selectFile(dpdCard, kbFileId)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\nSetting keyboard file content\n");
     Keyboard kb;
     keyboard_init(&kb);
     //Mode detection win/mac
-    keyboard_addOSProbe(&kb,-1,-1,-1);
+    if(!keyboard_addOSProbe(&kb,-1,-1,-1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //windows version
-    keyboard_addIfPC(&kb);
+    if(!keyboard_addIfPC(&kb)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //send win+r without sending blank stuff before
-    keyboard_addOSProbeWinR(&kb,-1,0xF000,-1);
+    if(!keyboard_addOSProbeWinR(&kb,-1,0xF000,-1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //wait a bit for command windows to appear
-    keyboard_addSleep(&kb,-1);
+    if(!keyboard_addSleep(&kb,-1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //Type in the link address
-    keyboard_addTextWindows(&kb,url);
+    if(!keyboard_addTextWindows(&kb,url)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //add hotp code
     if(makeHotp != FALSE){
         //add hotp code
-        keyboard_addHotpCode(&kb,options,0x08,hotpKeyset.version,counterFileId,divForHotp);
+        if(!keyboard_addHotpCode(&kb,options,0x08,hotpKeyset.version,counterFileId,divForHotp)){
+            fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+            return 0;
+        }
     }
     //add return
-    keyboard_addReturn(&kb);
+    if(!keyboard_addReturn(&kb)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //mac version
-    keyboard_addIfMac(&kb);
+    if(!keyboard_addIfMac(&kb)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //Type cmd + space, then release key
-    keyboard_addKeyCodeRelease(&kb,"01082c");
+    if(!keyboard_addKeyCodeRelease(&kb,"01082c")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //wait a bit for spotlight to appear
-    keyboard_addSleep(&kb,0x14000);
+    if(!keyboard_addSleep(&kb,0x14000)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //Type "Safari<wait><return>"
-    keyboard_addTextMac(&kb,"Safari.app",0,-1);
-    keyboard_addSleep(&kb,0x3c000);
-    keyboard_addReturn(&kb);
-    keyboard_addSleep(&kb,-1);
-    keyboard_addSleep(&kb,-1);
-    //if azerty: erase and retry
-    keyboard_addKeyCodeRaw(&kb,"2A2A2A2A2A2A2A2A2A2A");//backspace
-    keyboard_addTextMac(&kb,"Safari.app",1,-1);
-    keyboard_addSleep(&kb,0x3c000);
-    keyboard_addReturn(&kb);
+    if(!keyboard_addTextMac(&kb,"Safari.app",0,-1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!keyboard_addSleep(&kb,0x3c000)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!keyboard_addReturn(&kb)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!keyboard_addSleep(&kb,-1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!keyboard_addSleep(&kb,-1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    //if azerty: erase and retry : backspace
+    if(!keyboard_addKeyCodeRaw(&kb,"2A2A2A2A2A2A2A2A2A2A")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!keyboard_addTextMac(&kb,"Safari.app",1,-1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!keyboard_addSleep(&kb,0x3c000)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!keyboard_addReturn(&kb)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //wait for Safari to appear (and possibly load the default page)
-    keyboard_addSleep(&kb,0x78000);
+    if(!keyboard_addSleep(&kb,0x78000)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //select new tab cmd + T
-    keyboard_addKeyCodeRelease(&kb,"010817");
-    keyboard_addSleep(&kb,0x78000);
+    if(!keyboard_addKeyCodeRelease(&kb,"010817")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!keyboard_addSleep(&kb,0x78000)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //Get back the focus just in case with cmd+L
-    keyboard_addKeyCodeRelease(&kb,"01080f");
-    keyboard_addSleep(&kb,0x3c000);
+    if(!keyboard_addKeyCodeRelease(&kb,"01080f")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!keyboard_addSleep(&kb,0x3c000)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //Type the url (qwerty)
-    keyboard_addTextMac(&kb,url,0,-1);
+    if(!keyboard_addTextMac(&kb,url,0,-1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //add hotp code
     if(makeHotp != FALSE){
         //add hotp code
-        keyboard_addHotpCode(&kb,options,0x08,hotpKeyset.version,counterFileId,divForHotp);
+        if(!keyboard_addHotpCode(&kb,options,0x08,hotpKeyset.version,counterFileId,divForHotp)){
+            fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+            return 0;
+        }
     }
     //add return
-    keyboard_addReturn(&kb);
+    if(!keyboard_addReturn(&kb)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //wait for the page to load
-    keyboard_addSleep(&kb,0x14000);
+    if(!keyboard_addSleep(&kb,0x14000)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //cmd + w close tab with the opposite layout
-    keyboard_addKeyCodeRelease(&kb,"01081d");
+    if(!keyboard_addKeyCodeRelease(&kb,"01081d")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //Then retry with the other keyset
     //selectnew tab cmd+T
-    keyboard_addKeyCodeRelease(&kb,"010817");
-    keyboard_addSleep(&kb,0x78000);
+    if(!keyboard_addKeyCodeRelease(&kb,"010817")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!keyboard_addSleep(&kb,0x78000)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //Get back the focus just in case with cmd+L
-    keyboard_addKeyCodeRelease(&kb,"01080f");
-    keyboard_addSleep(&kb,0x3c000);
+    if(!keyboard_addKeyCodeRelease(&kb,"01080f")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!keyboard_addSleep(&kb,0x3c000)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //Type the url (azerty)
-    keyboard_addTextMac(&kb,url,1,-1);
+    if(!keyboard_addTextMac(&kb,url,1,-1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     if(makeHotp != FALSE){
         //add hotp code
-        keyboard_addHotpCode(&kb,options,0x08,hotpKeyset.version,counterFileId,divForHotp);
+        if(!keyboard_addHotpCode(&kb,options,0x08,hotpKeyset.version,counterFileId,divForHotp)){
+            fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+            return 0;
+        }
     }
     //add return
-    keyboard_addReturn(&kb);
+    if(!keyboard_addReturn(&kb)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //wait for the page to load
-    keyboard_addSleep(&kb,0x14000);
+    if(!keyboard_addSleep(&kb,0x14000)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //cmd + w close tab with the opposite layout
-    keyboard_addKeyCodeRelease(&kb,"01081a");
+    if(!keyboard_addKeyCodeRelease(&kb,"01081a")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     //ensure zeroized to avoid misinterpretaion
-    keyboard_zeroPad(&kb,fileSize);
+    if(!keyboard_zeroPad(&kb,fileSize)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
-    Daplug_writeData(dpdCard, 0,kb.content);
+    if(!Daplug_writeData(dpdCard, 0,kb.content)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\nSetting current file as keyboard file\n");
-    Daplug_useAsKeyboard(dpdCard);
+    if(!Daplug_useAsKeyboard(dpdCard)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\nActivating keyboard boot\n");
-    Daplug_setKeyboardAtBoot(dpdCard, 1);
+    if(!Daplug_setKeyboardAtBoot(dpdCard, 1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    fprintf(stderr, "\n************************************************************");
+    fprintf(stderr, "\n********** \"testKeyboard\" terminated with success **********\n");
+    fprintf(stderr, "************************************************************\n");
+
+    return 1;
 
 }
 
-void testDisableKeyboard(DaplugDongle *dpdCard){
+int testDisableKeyboard(DaplugDongle *dpdCard){
 
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     fprintf(stderr,"\n+TEST : Disable keyboard");
-    Daplug_setKeyboardAtBoot(dpdCard, 0);
+    if(!Daplug_setKeyboardAtBoot(dpdCard, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
     //cleanCard
     //try to remove counter file
-    Daplug_selectPath(dpdCard, "3f00c010");
-    Daplug_deleteFileOrDir(dpdCard, counterFileId);
+    if(!Daplug_selectPath(dpdCard, "3f00c010")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_deleteFileOrDir(dpdCard, counterFileId)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //try to remove keyboard file
-    Daplug_selectPath(dpdCard, "3f00");
-    Daplug_deleteFileOrDir(dpdCard, kbFileId);
+    if(!Daplug_selectPath(dpdCard, "3f00")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_deleteFileOrDir(dpdCard, kbFileId)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //try to remove modhex mapping file
-    Daplug_selectPath(dpdCard, "3f00");
-    Daplug_deleteFileOrDir(dpdCard, modhexFileId);
+    if(!Daplug_selectPath(dpdCard, "3f00")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_deleteFileOrDir(dpdCard, modhexFileId)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     //try to remove hotp keyset
-    Daplug_deleteKey(dpdCard, hotpKeyset.version);
+    if(!Daplug_deleteKey(dpdCard, hotpKeyset.version)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    fprintf(stderr, "\n*******************************************************************");
+    fprintf(stderr, "\n********** \"testDisableKeyboard\" terminated with success **********\n");
+    fprintf(stderr, "*******************************************************************\n");
+
+    return 1;
 
 }
 
-void checkLicenses(DaplugDongle *dpdCard){
+int testCheckLicenses(DaplugDongle *dpdCard){
 
-    Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL);
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
 
-    Daplug_selectPath(dpdCard, "3f00c00fd00d");
-    Daplug_selectFile(dpdCard, 0xa1ba);
+    if(!Daplug_selectPath(dpdCard, "3f00c00fd00d")){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_selectFile(dpdCard, 0xa1ba)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
     char readData[2*2+1]="";
     char presentLicenses[255]="";
     if(!Daplug_readData(dpdCard, 0, 1,readData)){
-        fprintf(stderr, "\ncheckLicenses() - Cannot read license file !\n");
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
     }
     int rd = 0;
     sscanf(readData,"%04X", &rd);
@@ -639,7 +1189,102 @@ void checkLicenses(DaplugDongle *dpdCard){
     if(rd & 0x10) strcat(presentLicenses, " SAM-COM ");
     if(rd & 0x20) strcat(presentLicenses, " SAM ");
 
-    printf("\nActivated licenses are: %s\n", presentLicenses);
+    printf("\nActivated licenses on this card are: %s\n", presentLicenses);
+
+    fprintf(stderr, "\n**************************************************************");
+    fprintf(stderr, "\n********** \"testCheckLicenses\" terminated with success *******\n");
+    fprintf(stderr, "**************************************************************\n");
+
+    return 1;
+
+}
+
+int testDiversifyKeyUsingSAM(DaplugDongle *dpdCard, DaplugDongle *dpdSAM){
+
+    //create SAM exportable keyset
+    if(!Daplug_authenticate(dpdSAM, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    Keyset exportableKeyset;
+    if(!keyset_createKeys(&exportableKeyset, 0x62,"0123456789abcdef0123456789abcdef",NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    exportableKeyset.usage = USAGE_SAM_CLEAR_EXPORT_DIV1;
+    int access[] = {ACCESS_ALWAYS,0};
+    if(!keyset_setKeyAccess(&exportableKeyset,access)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_putKey(dpdSAM, exportableKeyset, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    //SAM authenticate
+    //Chip serial as diversifier1
+    char div1[16*2+1]="";
+    if(!Daplug_getChipDiversifier(dpdCard, div1)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_authenticateUsingSAM(dpdCard, dpdSAM, SAMCtxKeyVersion, SAMCtxKeyId, SAMGPKeyVersion, TargetKeyVersion, C_MAC, div1, NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    //Diversify
+    Keyset newTargetKeyset; //a GP keyset for example
+    keyset_setVersion(&newTargetKeyset, 0x63);
+    newTargetKeyset.usage = USAGE_GP;
+    int access2[] = {ACCESS_ALWAYS,C_MAC};
+    if(!keyset_setKeyAccess(&newTargetKeyset,access2)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_computeDiversifiedKeysUsingSAM(dpdCard, exportableKeyset.version, diversifier1, NULL, &newTargetKeyset)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    //Putkey
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_putKey(dpdCard, newTargetKeyset, 0)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    //Use it
+    if(!Daplug_authenticate(dpdCard, newTargetKeyset, C_MAC, NULL, NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    //clean sam
+    if(!Daplug_deleteKey(dpdSAM, exportableKeyset.version)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    //clean card
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+    if(!Daplug_deleteKey(dpdCard, newTargetKeyset.version)){
+        fprintf(stderr, "\n***** An error occured during the test ! *****\n");
+        return 0;
+    }
+
+    fprintf(stderr, "\n*********************************************************************");
+    fprintf(stderr, "\n********** \"testDiversifyKeyUsingSAM\" terminated with success *******\n");
+    fprintf(stderr, "*********************************************************************\n");
+
+    return 1;
 
 }
 
@@ -812,15 +1457,6 @@ int main()
     //Or using a SAM
     //testAuthenticationWithSam(card, sam, 8); //Use community keysets 0x66 (SAM) => 0x42 (card)
 
-    //====================================== Check present licenses on the card =========================
-
-    /*
-    printf("\nSAM...\n");
-    checkLicenses(sam);
-    printf("\nCard...\n");
-    checkLicenses(card);
-    //*/
-
     //====================================== Serial & status ============================================
 
     //testGetSerial(card);
@@ -832,9 +1468,6 @@ int main()
     //testPutkey(card);
 
     //testPutkeyWithSAM(card, sam);
-
-    //expected : keyset version
-    //testDeleteKey(card, newKeyset.version);
 
     /*
     To test transient keyset operation, create the transient keyset F0 with any role (USAGE_GP for example),
@@ -869,6 +1502,18 @@ int main()
     //testKeyboard(card, "http://www.plug-up.com/", TRUE, KB_HOTP_MODHEX, "");
 
     //testDisableKeyboard(card);
+
+    //====================================== Others =======================================================
+
+    /*
+    //Ckeck Lisences
+    printf("\nSAM...\n");
+    testCheckLicenses(sam);
+    printf("\nCard...\n");
+    testCheckLicenses(card);
+    //*/
+
+    //testDiversifyKeyUsingSAM(card, sam);
 
     //======================================= END =========================================================
 
