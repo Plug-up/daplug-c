@@ -10,7 +10,7 @@ The "main.c" file in the "test" directory contains test functions for understand
 
 ### Windows 7/32 ###
 
-- Install openssl for windows <Win32 OpenSSL v1.0.1f> or greater (http://slproweb.com/products/Win32OpenSSL.html)
+- Install openssl for windows "Win32 OpenSSL v1.0.1f" or greater (http://slproweb.com/products/Win32OpenSSL.html)
 
 - Install libusbx-1.0
 
