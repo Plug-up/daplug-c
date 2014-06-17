@@ -1,3 +1,7 @@
+## C Daplug API 1.2 ##
+
+C Daplug API is a high level library for communication with Daplug dongles. It maps the Daplug dongle specification in an user friendly format.
+
 Daplug API source files are in the "src" directory.
 
 The "main.c" file in the "test" directory contains test functions for understanding how the C Daplug API works. 
