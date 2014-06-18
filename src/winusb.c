@@ -20,6 +20,9 @@
 #ifdef __linux__
     #include <libusb-1.0/libusb.h>
 #endif // __linux__
+#ifdef __APPLE__
+    #include <libusb-1.0/libusb.h>
+#endif // __APPLE__
 
 #include <daplug/winusb.h>
 
