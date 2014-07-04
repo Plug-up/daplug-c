@@ -1056,10 +1056,9 @@ int DAPLUGCALL Daplug_putKeyUsingSAM(DaplugDongle *dpd, int newKeyVersion, int a
     char *mode = "81";
 
     //key usage
-    int usg = usage;
     char ku[1*2+1]="";
     if(itselfParent){
-        usg = usg + 0x80;
+        usage = usage + 0x80;
     }
     sprintf(ku,"%02X",usage);
 
