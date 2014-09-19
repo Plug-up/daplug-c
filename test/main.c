@@ -1499,6 +1499,7 @@ int main()
 
     //====================================== Keyboard functions ===========================================
 
+    //If <testKeyboard> terminates with some errors, try <testDisableKeyboard> first.
     //testKeyboard(card, "http://www.plug-up.com/", TRUE, KB_HOTP_MODHEX, "");
 
     //testDisableKeyboard(card);
