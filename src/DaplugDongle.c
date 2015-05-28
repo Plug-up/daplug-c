@@ -1056,9 +1056,10 @@ int DAPLUGCALL Daplug_putKeyUsingSAM(DaplugDongle *dpd, int newKeyVersion, int a
     char *mode = "81";
 
     //key usage
+    int usg = usage;
     char ku[1*2+1]="";
     if(itselfParent){
-        usage = usage + 0x80;
+        usg = usg + 0x80;
     }
     sprintf(ku,"%02X",usage);
 
@@ -1403,9 +1404,12 @@ int DAPLUGCALL Daplug_readData(DaplugDongle *dpd, int offset, int length, char *
 
     char read_binary_apdu_str[APDU_CMD_MAXLEN*2+1]="";
     char pos[2*2+1]="";
+    char last_part_len_str[1*2+1]="";
+    char fakeBytes_str[MAX_REAL_DATA_SIZE*2+1]="";
     char ret[MAX_FS_FILE_SIZE]=""; //0xffff : file max size
 
-    int p = offset;
+    int p = offset,
+        last_part_len = 0;
 
     Apdu read_binary_apdu;
 
@@ -1414,21 +1418,40 @@ int DAPLUGCALL Daplug_readData(DaplugDongle *dpd, int offset, int length, char *
         return 0;
     }
 
+    last_part_len = length % MAX_REAL_DATA_SIZE;
+
     sprintf(pos,"%04X",p);
 
-    //We read parts of MAX_FS_DATA_RW_SIZE bytes : EF = FF - 8 - 8 (data max len - possible mac - possible pad when enc)
+    //We read parts of MAX_REAL_DATA_SIZE bytes : EF = FF - 8 - 8 (data max len - possible mac - possible pad when enc)
     int reads_nb = 0;
     if(length % MAX_REAL_DATA_SIZE == 0)
         reads_nb = length/MAX_REAL_DATA_SIZE;
     else reads_nb = (int)length/MAX_REAL_DATA_SIZE+1;
 
-    //when reads_nb = 1 it means that length is < MAX_FS_DATA_RW_SIZE
-    while(reads_nb>0){
+    int aPartLen = 0;
+
+    while(reads_nb > 0){
 
         strcpy(read_binary_apdu_str,"");
         strcat(read_binary_apdu_str,"80b0");
         strcat(read_binary_apdu_str,pos);
-        strcat(read_binary_apdu_str,"00");
+        //Now, according to the product specification, we should add the apdu Le parameter, wich specifies the number of data that should be returned by the card.
+        //But, in our approch, this is seen as the Lc parameter. So, to prevent length errors, we add Lc zero-byte as fake data.
+        if(reads_nb > 1 || last_part_len == 0){
+            aPartLen = MAX_REAL_DATA_SIZE;
+            Byte fakeBytes[MAX_REAL_DATA_SIZE];
+            memset(fakeBytes, 0, MAX_REAL_DATA_SIZE);
+            bytesToStr(fakeBytes, MAX_REAL_DATA_SIZE, fakeBytes_str);
+            strcat(read_binary_apdu_str,"EF"); //We read MAX_REAL_DATA_SIZE bytes
+            strcat(read_binary_apdu_str, fakeBytes_str);
+        }else{
+            aPartLen = last_part_len;
+            sprintf(last_part_len_str,"%02X", last_part_len);
+            strcpy(fakeBytes_str,"");
+            while(strlen(fakeBytes_str)/2 < last_part_len) strcat(fakeBytes_str, "00");
+            strcat(read_binary_apdu_str, last_part_len_str);
+            strcat(read_binary_apdu_str,fakeBytes_str);
+        }
 
         //Set to apdu cde
         if(!setApduCmd(read_binary_apdu_str,&read_binary_apdu)){
@@ -1443,8 +1466,15 @@ int DAPLUGCALL Daplug_readData(DaplugDongle *dpd, int offset, int length, char *
         }
 
         if(strcmp(read_binary_apdu.sw_str,"9000")){
-            fprintf(stderr,"\nreadData(): Read failure !\n");
+            if(!strncmp(read_binary_apdu.sw_str,"67", 2)){
+                fprintf(stderr,"\nreadData(): Wrong length. The requested length seems exceed file's size !\n");
+            }else fprintf(stderr,"\nreadData(): Read failure !\n");
             return 0;
+        }else{
+            if(read_binary_apdu.rep_data_len < aPartLen){
+                fprintf(stderr,"\nreadData(): The requested length exceeds file's size !\n");
+                return 0;
+            }
         }
 
         strcat(ret,read_binary_apdu.r_str);
@@ -1483,7 +1513,7 @@ int DAPLUGCALL Daplug_writeData(DaplugDongle *dpd, int  offset, char* data_to_wr
 
     sprintf(pos,"%04X",p);
 
-    //We write parts of MAX_FS_DATA_RW_SIZE bytes : EF = FF - 8 - 8 (data max len - possible mac - possible pad when enc)
+    //We write parts of MAX_REAL_DATA_SIZE bytes : EF = FF - 8 - 8 (data max len - possible mac - possible pad when enc)
     int write_nb = 0;
     if(length % MAX_REAL_DATA_SIZE== 0) write_nb = length/MAX_REAL_DATA_SIZE; else write_nb = (int)length/MAX_REAL_DATA_SIZE+1;
 
