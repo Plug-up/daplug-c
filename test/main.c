@@ -1509,9 +1509,9 @@ int main()
     /*
     //Ckeck Lisences
     printf("\nSAM...\n");
-    testCheckLicenses(sam);
+    if(sam) testCheckLicenses(sam);
     printf("\nCard...\n");
-    testCheckLicenses(card);
+    if(card) testCheckLicenses(card);
     //*/
 
     //testDiversifyKeyUsingSAM(card, sam);
