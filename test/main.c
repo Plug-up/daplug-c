@@ -478,7 +478,7 @@ int testImportKey(DaplugDongle *dpdCard){
 
     fprintf(stderr,"\n+TEST: Import Key");
     //blob previously exported
-    char impk[APDU_D_MAXLEN*2+1]="d021018877f69109eee09a177e4bb2ad37e6c4aab021efba2b468bc3198a4a02b1ada5453ffd2cd7fb96c7c22dba1ab218f12401fb746ce0821c3cdff943ced95aed4cba1aa2c51955e0ccc4133361f4b4fc6b2d76dfeb92";
+    char impk[APDU_D_MAXLEN*2+1]="fa4577fdb3753e1c1a0a7fcad91530e1cdd623a6a9f04fb9b2781c92c9eecbbb5c7dc2fa6e2a6fd56b24e13bdc8ae78a9da3203f95510591f3520877af65a7bf46792b169d8804fd9ec6990d3b38617e844c7357ee2c430f";
     if(!Daplug_importKey(dpdCard, 0xFD,0x01,impk)){
         fprintf(stderr, "\n***** An error occured during the test ! *****\n");
         return 0;
@@ -495,7 +495,7 @@ int testImportKey(DaplugDongle *dpdCard){
 
 int testFileSystem(DaplugDongle *dpdCard){
 
-    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+    /*if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
         fprintf(stderr, "\n***** An error occured during the test ! *****\n");
         return 0;
     }
@@ -521,11 +521,11 @@ int testFileSystem(DaplugDongle *dpdCard){
     if(!Daplug_selectFile(dpdCard, FS_MASTER_FILE)){
         fprintf(stderr, "\n***** An error occured during the test ! *****\n");
         return 0;
-    }
-    if(!Daplug_selectPath(dpdCard, "019001f4")){
+    }*/
+    if(!Daplug_selectPath(dpdCard, "3f00c00f")){ //019001f4
         fprintf(stderr, "\n***** An error occured during the test ! *****\n");
         return 0;
-    }
+    }/*
     char w_data[264*2+1]="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567";
     if(!Daplug_writeData(dpdCard, 0x0000,w_data)){
         fprintf(stderr, "\n***** An error occured during the test ! *****\n");
@@ -550,7 +550,7 @@ int testFileSystem(DaplugDongle *dpdCard){
     fprintf(stderr, "\n**************************************************************");
     fprintf(stderr, "\n********** \"testFileSystem\" terminated with success **********\n");
     fprintf(stderr, "**************************************************************\n");
-
+    */
     return 1;
 
 }
@@ -1404,7 +1404,6 @@ int main()
     /*
     If you want test SAM functions, we assume that you have a card and a sam connected;
     that the card is the first detected (id 0) and the SAM is the second detected (id 1)
-    If you want do tests only on card (without using SAM), just comment code corresponding to tests functions using SAM.
     */
 
     char **donglesList = NULL;
@@ -1423,87 +1422,116 @@ int main()
 
     fprintf(stderr, "\n\nget card on %s...", donglesList[0]);
     if((card = Daplug_getDongleById(0)) == NULL){
-        return 0;
+        fprintf(stderr, "\nNo card connected.\n");
     }else{
         fprintf(stderr, "\nOk.\n");
     }
 
-    //*
     fprintf(stderr, "\nget SAM on %s...", donglesList[1]);
     if((sam = Daplug_getDongleById(1)) == NULL){
-        return 0;
+        fprintf(stderr, "\nNo SAM connected.\n");
     }else{
         fprintf(stderr, "\nOk.\n");
     }
-    //*/
 
     //===================================== Test mode switching =======================================
 
     //expected : mode - HID_DEVICE , WINUSB_DEVICE
     //Remove dongle then reinsert it after switching
-    //testModeSwitching(card, WINUSB_DEVICE);
-
+    /*
+    if(card) testModeSwitching(card, WINUSB_DEVICE);
+    else return 0;
+    //*/
     //===================================== Authentication =============================================
     /*
     expected : security level (1 = Command integrity (the default, mandatory), 2 = Command data encryption
                                  3 = Response integrity, 4 = Response data encryption
                                  5 = 1 & 2 & 3 , 6 = 1 & 2 & 4 , 7 = 1 & 3 & 4
                                  8 = 1 & 2 & 3 & 4 , All other values = Command integrity  */
-    //testAuthentication(card, 8);
-
+    /*
+    if(card) testAuthentication(card, 8);
+    else return 0;
+    //*/
     //Or using diversified keys
-    //testDivAuthentication(card, 8);
-
+    /*
+    if(card) testDivAuthentication(card, 8);
+    else return 0;
+    //*/
     //Or using a SAM
-    //testAuthenticationWithSam(card, sam, 8); //Use community keysets 0x66 (SAM) => 0x42 (card)
-
+    /*
+    if(card && sam) testAuthenticationWithSam(card, sam, 8); //Use community keysets 0x66 (SAM) => 0x42 (card)
+    else return 0;
+    //*/
     //====================================== Serial & status ============================================
-
-    //testGetSerial(card);
-
-    //testGetStatus(card);
-
+    /*
+    if(card) testGetSerial(card);
+    else return 0;
+    //*/
+    /*
+    if(card) testGetStatus(card);
+    else return 0;
+    //*/
     //========================================= New, export/import key ==================================
-
-    //testPutkey(card);
-
-    //testPutkeyWithSAM(card, sam);
-
+    /*
+    if(card) testPutkey(card);
+    else return 0;
+    //*/
+    /*
+    if(sam && card) testPutkeyWithSAM(card, sam);
+    else return 0;
+    //*/
     /*
     To test transient keyset operation, create the transient keyset F0 with any role (USAGE_GP for example),
     Perform an export, remove the dongle & reinsert it then perform an import.
     Finally, use the imported keyset (GP authentication if USAGE_GP role)
     */
-    //testExportKey(card);
-
-    //testImportKey(card);
-
+    /*
+    if(card) testExportKey(card);
+    else return 0;
+    //*/
+    /*
+    if(card) testImportKey(card);
+    else return 0;
+    //*/
     //========================================= File system ==============================================
-
-    //testFileSystem(card);
-
+    /*
+    if(card) testFileSystem(card);
+    else return 0;
+    //*/
     //======================================= Encryption & random ========================================
-
-    //testEncryptDecrypt(card);
-
+    /*
+    if(card) testEncryptDecrypt(card);
+    else return 0;
+    //*/
     //expected: Random length
-    //testGenerateRandom(card, 239);
-
+    /*
+    if(card) testGenerateRandom(card, 239);
+    else return 0;
+    //*/
     //========================================== HMAC, HOTP, TOTP ========================================
-
-    //testHmacSha1(card);
-
-    //testHotp(card);
-
-    //testTotp(card);
-
+    /*
+    if(card )testHmacSha1(card);
+    else return 0;
+    //*/
+    /*
+    if(card) testHotp(card);
+    else return 0;
+    //*/
+    /*
+    if(card) testTotp(card);
+    else return 0;
+    //*/
     //====================================== Keyboard functions ===========================================
 
     //If <testKeyboard> terminates with some errors, try <testDisableKeyboard> first.
-    //testKeyboard(card, "http://www.plug-up.com/", TRUE, KB_HOTP_MODHEX, "");
-
-    //testDisableKeyboard(card);
-
+    /*
+    if(card) testKeyboard(card, "http://www.plug-up.com/", TRUE, KB_HOTP_MODHEX, "");
+    else return 0;
+    //*/
+    /*
+    if(card) testDisableKeyboard(card);
+    else return 0;
+    //*/
     //====================================== Others =======================================================
 
     /*
@@ -1513,9 +1541,10 @@ int main()
     printf("\nCard...\n");
     if(card) testCheckLicenses(card);
     //*/
-
-    //testDiversifyKeyUsingSAM(card, sam);
-
+    /*
+    if(card && sam) testDiversifyKeyUsingSAM(card, sam);
+    else return 0;
+    //*/
     //======================================= END =========================================================
 
     if(card) Daplug_close(card);
@@ -1523,7 +1552,7 @@ int main()
 
 
     if(donglesList) Daplug_exit(&donglesList);
-    fclose(flog_apdu);
+    if(flog_apdu) fclose(flog_apdu);
 
     //=====================================================================================================
 
