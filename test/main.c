@@ -495,7 +495,7 @@ int testImportKey(DaplugDongle *dpdCard){
 
 int testFileSystem(DaplugDongle *dpdCard){
 
-    /*if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
+    if(!Daplug_authenticate(dpdCard, keyset01,C_MAC+C_DEC+R_MAC+R_ENC,NULL,NULL)){
         fprintf(stderr, "\n***** An error occured during the test ! *****\n");
         return 0;
     }
@@ -521,19 +521,19 @@ int testFileSystem(DaplugDongle *dpdCard){
     if(!Daplug_selectFile(dpdCard, FS_MASTER_FILE)){
         fprintf(stderr, "\n***** An error occured during the test ! *****\n");
         return 0;
-    }*/
-    if(!Daplug_selectPath(dpdCard, "3f00c00f")){ //019001f4
+    }
+    if(!Daplug_selectPath(dpdCard, "019001f4")){
         fprintf(stderr, "\n***** An error occured during the test ! *****\n");
         return 0;
-    }/*
-    char w_data[264*2+1]="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567";
+    }
+    char w_data[260*2+1]="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567";
     if(!Daplug_writeData(dpdCard, 0x0000,w_data)){
         fprintf(stderr, "\n***** An error occured during the test ! *****\n");
         return 0;
     }
     fprintf(stderr,"\nData to write = %s\n",w_data);
-    char r_data[264*2+1]="";
-    if(!Daplug_readData(dpdCard, 0x0000,264,r_data)){
+    char r_data[260*2+1]="";
+    if(!Daplug_readData(dpdCard, 0x0000,260,r_data)){
         fprintf(stderr, "\n***** An error occured during the test ! *****\n");
         return 0;
     }
@@ -550,7 +550,7 @@ int testFileSystem(DaplugDongle *dpdCard){
     fprintf(stderr, "\n**************************************************************");
     fprintf(stderr, "\n********** \"testFileSystem\" terminated with success **********\n");
     fprintf(stderr, "**************************************************************\n");
-    */
+
     return 1;
 
 }
