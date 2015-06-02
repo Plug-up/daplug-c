@@ -426,8 +426,8 @@ int exchangeApdu(DaplugDongle *dpd, Apdu *a){
             fprintf(stderr,"\nexchangeApdu(): Read failure !\n");
             return 0;
         }
-        a->rep_data_len = winusb_read_data0[1];
         if(winusb_read_data0[0] == 0x61){
+            a->rep_data_len = winusb_read_data0[1];
             int i=0;
             for(i=0;i<a->rep_data_len;i++){
                 a->rep_data[i]=winusb_read_data0[i+2];
