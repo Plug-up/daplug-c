@@ -1487,7 +1487,7 @@ int DAPLUGCALL Daplug_readData(DaplugDongle *dpd, int offset, int length, char *
 
     }
 
-    strcpy(read_data,ret);
+    strncpy(read_data,ret,length*2);
 
     return 1;
 
