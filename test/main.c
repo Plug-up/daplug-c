@@ -1179,8 +1179,7 @@ int testCheckLicenses(DaplugDongle *dpdCard){
         return 0;
     }
     int rd = 0;
-    sscanf(readData,"%04X", &rd);
-    rd = (rd & 0xff00) >> 8;
+    sscanf(readData,"%02X", &rd);
 
     if(rd & 0x01) strcat(presentLicenses, " FILE ");
     if(rd & 0x02) strcat(presentLicenses, " KB ");
