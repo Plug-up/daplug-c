@@ -215,7 +215,7 @@ int createPutKeyCommand(char *numKeyset, char *mode, char *sdekKey, char* gp_enc
     char tmp[8*2+1]="";
 
     char *temp = NULL;
-    //Daplug_encrypt key1
+    //encrypt key1
     if(tripleDES_ECB_encrypt(temp = str_sub(gp_enc,0,15),sdekKey,tmp)){
         free(temp);
         temp = NULL;
@@ -230,7 +230,7 @@ int createPutKeyCommand(char *numKeyset, char *mode, char *sdekKey, char* gp_enc
     }
     else
         return 0;
-    //Daplug_encrypt key2
+    //encrypt key2
     if(tripleDES_ECB_encrypt(temp = str_sub(gp_mac,0,15),sdekKey,tmp)){
         free(temp);
         temp = NULL;
@@ -245,7 +245,7 @@ int createPutKeyCommand(char *numKeyset, char *mode, char *sdekKey, char* gp_enc
     }
     else
         return 0;
-    //Daplug_encrypt key3
+    //encrypt key3
     if(tripleDES_ECB_encrypt(temp = str_sub(gp_dek,0,15),sdekKey,tmp)){
         free(temp);
         temp = NULL;
@@ -332,7 +332,7 @@ int tripleDES_ECB_encrypt(char *data, char *key, char *encrypted_data){
     //prepare data
     strToBytes(data,bytes_data_buf);
 
-    //Daplug_encrypt
+    //encrypt
     des_ecb3_encrypt((DES_cblock *)bytes_data_buf, (DES_cblock *) bytes_encrypted_data_buf, ks1,ks2,ks1, DES_ENCRYPT);
 
     //the result
